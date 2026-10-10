@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     const library_tests = b.addTest(.{ .root_module = game, .use_llvm = true });
     test_step.dependOn(&b.addRunArtifact(library_tests).step);
-    inline for (.{ "ecs_test.zig", "query_test.zig", "math_test.zig", "render_world_sprite_test.zig" }) |file| {
+    inline for (.{ "ecs_test.zig", "query_test.zig", "math_test.zig", "render_world_sprite_test.zig", "backend_iface_test.zig" }) |file| {
         const test_module = b.createModule(.{
             .root_source_file = b.path(b.fmt("tests/{s}", .{file})),
             .target = target,
@@ -82,6 +82,13 @@ pub fn build(b: *std.Build) void {
         .shared = true,
     });
     const zgpu = b.dependency("zgpu", .{ .target = target, .optimize = optimize });
+    const wgpu_backend = b.createModule(.{
+        .root_source_file = b.path("src/gfx/wgpu/backend.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    wgpu_backend.addImport("ez_engine", game);
+    wgpu_backend.addImport("zgpu", zgpu.module("root"));
     const wgpu_module = b.createModule(.{
         .root_source_file = b.path("examples/wgpu_clear/main.zig"),
         .target = target,
@@ -90,6 +97,7 @@ pub fn build(b: *std.Build) void {
     wgpu_module.addImport("ez_engine", game);
     wgpu_module.addImport("zglfw", zglfw.module("root"));
     wgpu_module.addImport("zgpu", zgpu.module("root"));
+    wgpu_module.addImport("wgpu_backend", wgpu_backend);
     const glfw_window = b.createModule(.{
         .root_source_file = b.path("src/platform/glfw_window.zig"),
         .target = target,
