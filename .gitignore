@@ -1,3 +1,7 @@
 .zig-cache/
 zig-out/
 zig-pkg/
+.verify-projects/
+tools/__pycache__/
+imgui.ini
+.superpowers/
