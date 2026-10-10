@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "objects": [
+    {
+      "id": 1,
+      "kind": "sprite",
+      "position": [
+        0,
+        0
+      ],
+      "size": [
+        64,
+        64
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "obstacle",
+      "position": [
+        100,
+        80
+      ],
+      "size": [
+        64,
+        64
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "pickup",
+      "position": [
+        220,
+        -100
+      ],
+      "size": [
+        64,
+        64
+      ]
+    }
+  ]
+}
