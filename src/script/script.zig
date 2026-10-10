@@ -7,6 +7,9 @@
 
 const std = @import("std");
 const World = @import("../ecs/world.zig").World;
+const Entity = @import("../ecs/entity.zig").Entity;
+const Vec2 = @import("../math/vec2.zig").Vec2;
+const Components = @import("../gfx/render_components.zig");
 const Scheduler = @import("../ecs/scheduler.zig").Scheduler;
 const Game = @import("../game.zig").Game;
 
@@ -52,6 +55,30 @@ pub const Script = struct {
     pub fn register(self: *Script, scheduler: *Scheduler, name: []const u8) !void {
         _ = try scheduler.addSystem(name, self, systemFn);
     }
+
+    /// Ready-made top-down movement: WASD + arrow keys drive the bound
+    /// entity's `Transform` at `speed` world units per second. Returns the
+    /// normalized direction so behaviors can reuse it (e.g. animation).
+    /// Bind `entity` before the first frame; null reads `UnboundEntity`.
+    pub const Mover2D = struct {
+        entity: ?Entity = null,
+        speed: f32 = 260,
+
+        pub fn update(self: *Mover2D, ctx: *Ctx) !Vec2 {
+            const entity = self.entity orelse return error.UnboundEntity;
+            var direction = Vec2.zero;
+            const input = &ctx.game.input;
+            if (input.key(.a).down or input.key(.left).down) direction.x -= 1;
+            if (input.key(.d).down or input.key(.right).down) direction.x += 1;
+            if (input.key(.s).down or input.key(.down).down) direction.y -= 1;
+            if (input.key(.w).down or input.key(.up).down) direction.y += 1;
+            if (direction.x != 0 and direction.y != 0) direction = Vec2.scale(direction, 0.70710678);
+            const transform = try ctx.world.get(entity, Components.Transform);
+            transform.position.x += direction.x * self.speed * ctx.dt;
+            transform.position.y += direction.y * self.speed * ctx.dt;
+            return direction;
+        }
+    };
 
     fn systemFn(context: ?*anyopaque, world: *World, dt: f32) anyerror!void {
         const self: *Script = @ptrCast(@alignCast(context.?));
