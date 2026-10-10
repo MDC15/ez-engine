@@ -7,7 +7,6 @@ const RenderWorld = @import("gfx/render_world.zig").RenderWorld;
 const Backend = @import("gfx/renderer.zig").Backend;
 const Clock = @import("core/time.zig").Clock;
 const Platform = @import("platform");
-const Camera = @import("gfx/camera.zig").Camera;
 const Camera2D = @import("gfx/camera.zig").Camera2D;
 const AssetManager = @import("asset/manager.zig").Manager;
 const DebugMonitor = @import("core/debug.zig").Monitor;
@@ -26,7 +25,6 @@ pub const Game = struct {
     input: Input = .{},
     audio: Audio,
     render_world: RenderWorld,
-    camera: Camera = .{},
     camera_2d: Camera2D = .{},
     renderer: ?Backend = null,
     frame_index: u64 = 0,
@@ -75,7 +73,6 @@ pub const Game = struct {
         try self.scheduler.run(&self.world, dt);
         try self.render_world.extract(&self.world);
         const extracted_render_items = self.render_world.items.items.len;
-        try self.render_world.cull(self.camera);
         if (self.framebuffer_extent.width > 0 and self.framebuffer_extent.height > 0) {
             const aspect = @as(f32, @floatFromInt(self.framebuffer_extent.width)) /
                 @as(f32, @floatFromInt(self.framebuffer_extent.height));
@@ -130,20 +127,19 @@ pub const Game = struct {
     }
 };
 
-test "game frame updates systems and extracts render items" {
+test "game frame updates systems and extracts sprite items" {
     const Components = @import("gfx/render_components.zig");
 
     var game = try Game.init(std.testing.allocator, 2);
     defer game.deinit();
     const entity = try game.world.create();
-    try game.world.add(entity, Components.Transform{ .position = .{ .x = 0, .z = -7 } });
-    try game.world.add(entity, Components.MeshRenderer{
-        .mesh = .{ .index = 2 },
-        .material = .{ .index = 3 },
+    try game.world.add(entity, Components.Transform{ .position = .{ .x = 0, .y = 0 } });
+    try game.world.add(entity, Components.SpriteRenderer{
+        .texture = .{ .index = 2 },
     });
     try game.frame(1.0 / 60.0);
     try std.testing.expectEqual(@as(usize, 1), game.render_world.items.items.len);
-    try std.testing.expectEqual(@as(f32, -7), game.render_world.items.items[0].position.z);
+    try std.testing.expectEqual(@as(f32, 0), game.render_world.items.items[0].position.x);
 }
 
 test "game frame extracts 2d sprite components" {
@@ -161,7 +157,6 @@ test "game frame extracts 2d sprite components" {
     try game.frame(1.0 / 60.0);
     try std.testing.expectEqual(@as(usize, 1), game.render_world.items.items.len);
     const item = game.render_world.items.items[0];
-    try std.testing.expectEqual(@import("gfx/render_world.zig").ItemKind.sprite, item.kind);
     try std.testing.expectEqual(@as(u32, 4), item.texture.index);
     try std.testing.expectEqual(@as(f32, 32), item.sprite_size.x);
     try std.testing.expectEqual(@as(i32, 7), item.z_index);

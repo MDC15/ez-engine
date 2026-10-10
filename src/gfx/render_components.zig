@@ -11,11 +11,6 @@ pub const Transform = struct {
     scale: Vec3 = .one,
 };
 
-pub const MeshRenderer = struct {
-    mesh: Handles.MeshHandle,
-    material: Handles.MaterialHandle,
-};
-
 /// Normalized texture coordinates with a top-left origin.
 pub const UVRect = struct {
     x: f32 = 0,

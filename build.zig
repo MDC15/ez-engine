@@ -24,20 +24,11 @@ pub fn build(b: *std.Build) void {
     });
     platform.addImport("input_module", input);
 
-    const vulkan = b.createModule(.{
-        .root_source_file = b.path("src/gfx/vulkan/api.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-    });
-    vulkan.addImport("platform", platform);
-
     const game = b.addModule("game_lib", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
-    game.addImport("vulkan_api", vulkan);
     game.addImport("platform", platform);
     game.addImport("input_module", input);
     game.addImport("zigimg_image", zigimg_image);
@@ -52,7 +43,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     const library_tests = b.addTest(.{ .root_module = game, .use_llvm = true });
     test_step.dependOn(&b.addRunArtifact(library_tests).step);
-    inline for (.{ "ecs_test.zig", "query_test.zig", "math_test.zig" }) |file| {
+    inline for (.{ "ecs_test.zig", "query_test.zig", "math_test.zig", "render_world_sprite_test.zig" }) |file| {
         const test_module = b.createModule(.{
             .root_source_file = b.path(b.fmt("tests/{s}", .{file})),
             .target = target,

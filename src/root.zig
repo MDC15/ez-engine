@@ -32,15 +32,10 @@ pub const Debug = @import("core/debug.zig");
 pub const AllocatorTools = @import("core/allocator.zig");
 pub const InputModule = @import("input_module");
 pub const AudioModule = @import("audio/audio.zig");
-pub const Mesh = @import("gfx/mesh.zig").Mesh;
-pub const Material = @import("gfx/material.zig").Material;
 pub const Texture = @import("gfx/texture.zig").Texture;
 pub const AssetLoading = struct {
-    pub const Mesh = @import("asset/mesh_loader.zig");
     pub const Texture = @import("asset/texture_loader.zig");
-    pub const Shader = @import("asset/shader_loader.zig");
 };
-pub const Vulkan = @import("vulkan_api");
 
 test {
     _ = @import("ecs/world.zig");
@@ -62,9 +57,7 @@ test {
     _ = @import("core/handle.zig");
     _ = @import("input_module");
     _ = @import("asset/manager.zig");
-    _ = @import("asset/mesh_loader.zig");
     _ = @import("asset/texture_loader.zig");
-    _ = @import("asset/shader_loader.zig");
     _ = @import("audio/audio.zig");
     _ = @import("gfx/renderer.zig");
     _ = @import("gfx/camera.zig");
@@ -73,9 +66,6 @@ test {
     _ = @import("gfx/sprite_animation.zig");
     _ = @import("physics/collision2d.zig");
     _ = @import("platform");
-    _ = @import("gfx/mesh.zig");
-    _ = @import("gfx/material.zig");
     _ = @import("gfx/texture.zig");
-    _ = @import("vulkan_api");
     _ = @import("game.zig");
 }

@@ -181,7 +181,7 @@ pub const Manager = struct {
 };
 
 test "asset handles become stale after release and slot reuse" {
-    var meshes = Store(u32, Handles.MeshHandle, null).init(std.testing.allocator);
+    var meshes = Store(u32, Handles.TextureHandle, null).init(std.testing.allocator);
     defer meshes.deinit();
     const first = try meshes.insert(10);
     try std.testing.expectEqual(@as(u32, 10), meshes.get(first).?.*);

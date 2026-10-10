@@ -18,9 +18,6 @@ pub fn Handle(comptime Tag: type) type {
 
 pub const invalid_index = std.math.maxInt(u32);
 
-pub const MeshHandle = Handle(enum { mesh });
-pub const MaterialHandle = Handle(enum { material });
 pub const TextureHandle = Handle(enum { texture });
-pub const ShaderHandle = Handle(enum { shader });
 
 const std = @import("std");
