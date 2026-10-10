@@ -30,8 +30,10 @@ Python — scaffold xong là `zig build run` được ngay.
    `Transform`. `update` trả về hướng đã normalize để behavior khác
    (vd. chọn animation clip) tái dùng. Entity null → `error.UnboundEntity`.
 4. **Desktop `App` helper ngoài core lib** (`src/app/desktop.zig`, module
-   `ez_app`, chỉ Linux x86_64 như `wgpu_backend`): `App.init(alloc, title,
-   w, h)` dựng window → graphics → game → `SpriteBackend.init`;
+   `ez_app`, chỉ Linux x86_64 như `wgpu_backend`): `App.init(&app, alloc,
+   title, w, h)` dựng tại chỗ window → graphics → game →
+   `SpriteBackend.init` (out-pointer để backend luôn trỏ đúng field của
+   `App`);
    `app.run(io)`; `deinit()` (game dọn backend qua renderer, rồi mới hủy
    graphics/window). Không đưa vào `root.zig` để core build mọi target.
 5. **Scaffold bằng Zig, bỏ Python**: `zig build new -Dname=X
