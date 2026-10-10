@@ -1,11 +1,12 @@
 # Project management
 
-Game projects are scaffolded with Zig itself — no Python needed. Run from
-the framework checkout:
+Game projects are scaffolded with the `ez` command — no Python needed, works
+from any directory (it delegates to `zig build new` in the framework
+checkout):
 
 ```sh
-zig build new -Dname=MyFirstGame
-zig build new -Dname=MyFirstGame -Dworkspace=~/Games
+./ez new MyFirstGame
+./ez new MyFirstGame --workspace ~/Games
 ```
 
 The default workspace is `projects/` beside the framework. The generator

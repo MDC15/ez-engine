@@ -8,8 +8,9 @@
   via `initWithStart`, one-line `register`) plus built-in `Mover2D`.
 - Desktop `App` helper (`ez_app` module): window + graphics + game + backend
   in `App.init`, `run`, `deinit`. The WGPU sample is gameplay-only.
-- `zig build new -Dname=...` scaffolding with a standard project template
-  (starter uses App + Script); the Python project tool is gone.
+- `ez new <name>` command (`./ez` script) wrapping `zig build new` with a
+  standard project template (starter uses App + Script); the Python project
+  tool is gone.
 
 ### Removed
 
