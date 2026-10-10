@@ -1,9 +1,6 @@
 const std = @import("std");
-const zglfw = @import("zglfw");
-const zgpu = @import("zgpu");
 const game_lib = @import("ez_engine");
-const GlfwWindow = @import("glfw_window").WindowAdapter;
-const SpriteBackend = @import("wgpu_backend").SpriteBackend;
+const App = @import("ez_app").App;
 
 const PlayerController = struct {
     const Animation = game_lib.RenderComponents.SpriteAnimation;
@@ -113,24 +110,9 @@ const DebugReporter = struct {
 
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
-    var window = try GlfwWindow.init(1280, 720, "ez-engine | textured 2D sprites");
-    defer window.deinit();
-
-    const graphics = try zgpu.GraphicsContext.create(allocator, .{
-        .window = window.native(),
-        .fn_getTime = @ptrCast(&zglfw.getTime),
-        .fn_getFramebufferSize = @ptrCast(&zglfw.Window.getFramebufferSize),
-        .fn_getWin32Window = @ptrCast(&zglfw.getWin32Window),
-        .fn_getX11Display = @ptrCast(&zglfw.getX11Display),
-        .fn_getX11Window = @ptrCast(&zglfw.getX11Window),
-        .fn_getWaylandDisplay = @ptrCast(&zglfw.getWaylandDisplay),
-        .fn_getWaylandSurface = @ptrCast(&zglfw.getWaylandWindow),
-        .fn_getCocoaWindow = @ptrCast(&zglfw.getCocoaWindow),
-    }, .{});
-    defer graphics.destroy(allocator);
-
-    var game = try game_lib.Game.init(allocator, 2);
-    defer game.deinit();
+    var app = try App.init(allocator, "ez-engine | textured 2D sprites", 1280, 720);
+    defer app.deinit();
+    var game = &app.game;
     const player_sheet = try game.assets.loadTextureFile(init.io, "assets/player_sheet.png", 16 * 1024 * 1024);
     const decoration_texture = try game.assets.loadTextureFile(init.io, "assets/sprite.png", 16 * 1024 * 1024);
     const sprite = try game.world.create();
@@ -179,24 +161,18 @@ pub fn main(init: std.process.Init) !void {
         .solid = true,
         .is_static = true,
     });
-    var backend = try SpriteBackend.init(allocator, graphics, &game.assets);
-    var backend_transferred = false;
-    defer if (!backend_transferred) backend.deinit();
-    game.renderer = backend.backend();
-    backend_transferred = true;
-
-    var player_controller = PlayerController{ .game = &game, .input = &game.input, .player = sprite };
+    var player_controller = PlayerController{ .game = game, .input = &game.input, .player = sprite };
     _ = try game.scheduler.addSystem("Player movement", &player_controller, PlayerController.update);
     _ = try game.scheduler.addSystem("Sprite animation", null, game_lib.SpriteAnimation.updateSystem);
     var collisions = game_lib.Collision2D.System.init(allocator);
     defer collisions.deinit();
-    collisions.setListener(&game, PickupListener.onContact);
+    collisions.setListener(game, PickupListener.onContact);
     _ = try game.scheduler.addSystem("2D collision", &collisions, game_lib.Collision2D.System.updateSystem);
     var camera_follow = game_lib.CameraFollow2D.System.init(&game.camera_2d, sprite);
     camera_follow.follow_speed = 7;
     _ = try game.scheduler.addSystem("Camera follow", &camera_follow, game_lib.CameraFollow2D.System.updateSystem);
-    var debug_reporter = DebugReporter{ .game = &game };
+    var debug_reporter = DebugReporter{ .game = game };
     _ = try game.scheduler.addSystem("Debug stats", &debug_reporter, DebugReporter.update);
     game.logger.writeCategory(.info, "sample", "Press F3 to toggle runtime statistics");
-    try game.run(init.io, window.platformWindow());
+    try app.run(init.io);
 }

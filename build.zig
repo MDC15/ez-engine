@@ -101,6 +101,23 @@ pub fn build(b: *std.Build) void {
     });
     wgpu_backend.addImport("ez_engine", game);
     wgpu_backend.addImport("zgpu", zgpu.module("root"));
+    const glfw_window = b.createModule(.{
+        .root_source_file = b.path("src/platform/glfw_window.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    glfw_window.addImport("ez_engine", game);
+    glfw_window.addImport("zglfw", zglfw.module("root"));
+    const ez_app = b.createModule(.{
+        .root_source_file = b.path("src/app/desktop.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    ez_app.addImport("ez_engine", game);
+    ez_app.addImport("zglfw", zglfw.module("root"));
+    ez_app.addImport("zgpu", zgpu.module("root"));
+    ez_app.addImport("glfw_window", glfw_window);
+    ez_app.addImport("wgpu_backend", wgpu_backend);
     const wgpu_module = b.createModule(.{
         .root_source_file = b.path("examples/wgpu_clear/main.zig"),
         .target = target,
@@ -110,13 +127,7 @@ pub fn build(b: *std.Build) void {
     wgpu_module.addImport("zglfw", zglfw.module("root"));
     wgpu_module.addImport("zgpu", zgpu.module("root"));
     wgpu_module.addImport("wgpu_backend", wgpu_backend);
-    const glfw_window = b.createModule(.{
-        .root_source_file = b.path("src/platform/glfw_window.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    glfw_window.addImport("ez_engine", game);
-    glfw_window.addImport("zglfw", zglfw.module("root"));
+    wgpu_module.addImport("ez_app", ez_app);
     wgpu_module.addImport("glfw_window", glfw_window);
 
     const wgpu = b.addExecutable(.{
