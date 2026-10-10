@@ -4,6 +4,11 @@
 
 ### Removed
 
+- Deleted the desktop editor (`examples/editor/`, `docs/editor.md`,
+  `zig build editor(editor-run)` steps, `zgui` dependency, `open` subcommand
+  in `tools/ez_project.py`). Scene editing is done by hand in
+  `editor_scene.json` (`ez_engine.Scene` format).
+
 - Deleted the unused raw Vulkan wrapper (`src/gfx/vulkan/`, ~1900 lines).
   Samples render through `zgpu`, never through this module.
 - Removed undrawn mesh/material code (`src/gfx/mesh.zig`,

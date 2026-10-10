@@ -52,10 +52,6 @@
             .url = "git+https://github.com/zigimg/zigimg.git#fcdd0d28d6393c747b2091874ed180856ab0ab73",
             .hash = "zigimg-0.1.0-8_eo2llOGABcmeR44Z0MzHK5WK34KxFhrDBzqAjFpQF0",
         },
-        .zgui = .{
-            .url = "git+https://github.com/zig-gamedev/zgui?ref=main#a25eb0434a3e032e44e2e40238cd9a390aeec028",
-            .hash = "zgui-0.6.0-dev--L6sZMdHbgDGyf0mWBzn0LjGig6LuanLqohxml6sZiPG",
-        },
     },
     .paths = .{
         "build.zig",

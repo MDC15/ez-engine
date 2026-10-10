@@ -28,8 +28,6 @@ zig build test        # Chạy unit tests
 zig build example     # Chạy ví dụ ECS + texture, không cần GPU
 zig build wgpu-clear  # Build sample sprite WGPU
 zig build wgpu-clear-run  # Chạy sample, cần WSLg
-zig build editor      # Build editor, cần Linux x86_64
-zig build editor-run  # Chạy editor, cần WSLg
 ```
 
 ## Dùng như library
@@ -50,20 +48,19 @@ exe.root_module.addImport("ez_engine", engine.module("ez_engine"));
 
 ## Hỗ trợ nền tảng
 
-| Target | Library + tests | `wgpu-clear` / `editor` |
-|--------|-----------------|-------------------------|
+| Target | Library + tests | `wgpu-clear` |
+|--------|-----------------|----------------|
 | Linux x86_64 | ✅ | ✅ (cần WSLg trên WSL) |
 | Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning, chỉ build lib + tests |
 
 ## Tạo và quản lý project game
 
-Project manager tạo game project mới, liệt kê project trong workspace và mở
-project bằng editor desktop. Mặc định project được tạo trong `projects/`:
+Project manager tạo game project mới và liệt kê project trong workspace.
+Mặc định project được tạo trong `projects/`:
 
 ```sh
 python3 tools/ez_project.py new MyFirstGame
 python3 tools/ez_project.py list
-python3 tools/ez_project.py open MyFirstGame
 ```
 
 Đổi nơi lưu bằng `--workspace`, ví dụ:
@@ -71,19 +68,12 @@ python3 tools/ez_project.py open MyFirstGame
 ```sh
 python3 tools/ez_project.py --workspace ~/Games new MyFirstGame
 python3 tools/ez_project.py --workspace ~/Games list
-python3 tools/ez_project.py --workspace ~/Games open MyFirstGame
 ```
 
 Project có `project.json`, scene mẫu, thư mục `Assets/`, `Scenes/`, `src/` và
 `Build/`, cùng `build.zig` đã nối tới bản framework hiện tại. Trong project mới,
 chạy `zig build run` để build và chạy starter sample. Đọc
 [docs/project-management.md](docs/project-management.md) để biết chi tiết.
-
-Editor MVP có Hierarchy để tạo/chọn/xóa object, Scene View để xem và chọn
-object, Inspector để chỉnh vị trí/kích thước, cùng Save/Open scene JSON. Mở
-chi tiết trong [docs/editor.md](docs/editor.md). Hiện Scene View dùng hình khối
-màu đại diện; editor chưa nạp PNG vào preview và chưa ghi scene thành runtime
-game.
 
 Sample đồ họa nằm ở `examples/wgpu_clear`; `assets/player_sheet.png` có một
 frame idle và bốn frame đi bộ. Dùng WASD để di chuyển, chạm vật phẩm màu cam
@@ -136,11 +126,10 @@ ownership và định dạng texture.
   và framebuffer resize.
 - Logger có level/category và debug stats tùy chọn cho frame, FPS, entity,
   culling và render batch.
-- Editor scene MVP: tạo/chọn/xóa sprite, obstacle, pickup; chỉnh transform;
-  lưu/mở scene JSON.
-- Project manager CLI: tạo project từ starter, liệt kê theo workspace, mở
-  project bằng editor desktop.
+- Scene document (`ez_engine.Scene`): tạo/chọn/xóa sprite, obstacle, pickup;
+  chỉnh transform; lưu/mở scene JSON.
+- Project manager CLI: tạo project từ starter, liệt kê theo workspace.
 - Chưa có renderer mesh/material, atlas, decoder JPEG, audio device, mô phỏng
-  vật lý hoặc pipeline đưa scene editor vào runtime game.
+  vật lý hoặc pipeline đưa scene vào runtime game.
 
 Đây là framework nền tảng đang phát triển, chưa phải engine production-ready.

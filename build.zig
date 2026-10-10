@@ -84,7 +84,7 @@ pub fn build(b: *std.Build) void {
 
     const desktop_supported = target.result.os.tag == .linux and target.result.cpu.arch == .x86_64;
     if (!desktop_supported) {
-        std.log.warn("desktop samples (wgpu-clear, editor) require Linux x86_64; only the library and tests are available", .{});
+        std.log.warn("the wgpu-clear sample requires Linux x86_64; only the library and tests are available", .{});
         return;
     }
 
@@ -136,34 +136,4 @@ pub fn build(b: *std.Build) void {
     build_wgpu.dependOn(&wgpu.step);
     const run_wgpu = b.step("wgpu-clear-run", "Run the WGPU sprite sample");
     run_wgpu.dependOn(&b.addRunArtifact(wgpu).step);
-
-    const zgui = b.dependency("zgui", .{ .backend = .glfw_wgpu });
-    const editor_module = b.createModule(.{
-        .root_source_file = b.path("examples/editor/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    editor_module.addImport("zglfw", zglfw.module("root"));
-    editor_module.addImport("zgpu", zgpu.module("root"));
-    editor_module.addImport("zgui", zgui.module("root"));
-    editor_module.addImport("ez_engine", game);
-    editor_module.addImport("glfw_window", glfw_window);
-
-    const editor = b.addExecutable(.{
-        .name = "ez-engine-editor",
-        .root_module = editor_module,
-        .use_llvm = true,
-    });
-    editor.root_module.linkLibrary(zglfw.artifact("glfw"));
-    editor.root_module.linkLibrary(zgpu.artifact("zdawn"));
-    editor.root_module.linkLibrary(zgui.artifact("imgui"));
-    editor.root_module.linkSystemLibrary("X11", .{});
-    editor.root_module.addLibraryPath(dawn.path(""));
-    editor.root_module.linkSystemLibrary("dawn", .{});
-
-    const install_editor = b.addInstallArtifact(editor, .{});
-    const build_editor = b.step("editor", "Build the editor");
-    build_editor.dependOn(&install_editor.step);
-    const run_editor = b.step("editor-run", "Run the editor (requires WSLg on WSL)");
-    run_editor.dependOn(&b.addRunArtifact(editor).step);
 }

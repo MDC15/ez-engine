@@ -102,6 +102,14 @@ pub fn build(b: *std.Build) void {
     const zgpu = b.dependency("zgpu", .{ .target = target, .optimize = optimize });
     const dawn = b.dependency("dawn_x86_64_linux_gnu", .{});
 
+    const wgpu_backend = b.createModule(.{
+        .root_source_file = engine.path("src/gfx/wgpu/backend.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    wgpu_backend.addImport("ez_engine", engine.module("ez_engine"));
+    wgpu_backend.addImport("zgpu", zgpu.module("root"));
+
     const glfw_window = b.createModule(.{
         .root_source_file = b.path("src/glfw_window.zig"),
         .target = target,
@@ -118,6 +126,7 @@ pub fn build(b: *std.Build) void {
     game_module.addImport("ez_engine", engine.module("ez_engine"));
     game_module.addImport("zglfw", zglfw.module("root"));
     game_module.addImport("zgpu", zgpu.module("root"));
+    game_module.addImport("wgpu_backend", wgpu_backend);
     game_module.addImport("glfw_window", glfw_window);
 
     const game = b.addExecutable(.{
@@ -155,8 +164,8 @@ zig build run
 
 The starter opens a WGPU game window with an animated player, movement, and
 basic collision sample. WSL users need WSLg. Edit `src/main.zig`, put textures
-in `Assets/`, and edit `editor_scene.json` with the desktop editor. Project
-metadata is in `project.json`.
+in `Assets/`, and edit `editor_scene.json` by hand (it uses the `ez_engine.Scene`
+format, version 1). Project metadata is in `project.json`.
 ''',
         encoding="utf-8",
     )
@@ -220,23 +229,6 @@ def find_projects(workspace: Path) -> list[tuple[Path, dict[str, object]]]:
     return sorted(projects, key=lambda item: str(item[1].get("name", "")).casefold())
 
 
-def open_project(path: Path, editor: Path | None) -> None:
-    project_dir = path.expanduser().resolve()
-    metadata_file = project_dir / PROJECT_FILE
-    if not metadata_file.is_file():
-        raise FileNotFoundError(f"Not an ez-engine project (missing {PROJECT_FILE}): {project_dir}")
-
-    if editor is None:
-        editor = ENGINE_ROOT / "zig-out" / "bin" / "ez-engine-editor"
-        if not editor.is_file():
-            subprocess.run(["zig", "build", "editor"], cwd=ENGINE_ROOT, check=True)
-    editor = editor.expanduser().resolve()
-    if not editor.is_file():
-        raise FileNotFoundError(f"Editor executable not found: {editor}")
-    subprocess.Popen([str(editor)], cwd=project_dir)
-    print(f"Opened {project_dir}")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(prog="ez-project", description="Create and manage ez-engine game projects")
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE, help=f"Projects folder (default: {DEFAULT_WORKSPACE})")
@@ -246,10 +238,6 @@ def main() -> int:
     create.add_argument("name", help="Project name")
 
     commands.add_parser("list", help="List projects in the workspace")
-
-    open_command = commands.add_parser("open", help="Open a project in the desktop editor")
-    open_command.add_argument("project", type=Path, help="Project folder or folder name in the workspace")
-    open_command.add_argument("--editor", type=Path, help="Path to an already-built editor executable")
 
     args = parser.parse_args()
     try:
@@ -264,11 +252,6 @@ def main() -> int:
             else:
                 for project_path, metadata in projects:
                     print(f"{metadata['name']}\t{project_path}")
-        elif args.command == "open":
-            candidate = args.project.expanduser()
-            if not candidate.exists():
-                candidate = args.workspace.expanduser() / candidate
-            open_project(candidate, args.editor)
         return 0
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"ez-project: {error}", file=sys.stderr)
