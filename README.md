@@ -1,17 +1,30 @@
 # ez-engine
 
-Framework game viết bằng Zig, hiện tập trung vào ECS và đường render sprite
-2D. Runtime tách dữ liệu gameplay khỏi backend đồ họa; sample WGPU dùng GLFW và
-Dawn/WebGPU.
+Framework game 2D viết bằng Zig (`ez_engine`, `0.1.0-dev`), tập trung vào ECS
+và đường render sprite. Runtime tách dữ liệu gameplay khỏi backend đồ họa:
+gameplay chạy trên ECS, mỗi frame extract sprite ra `RenderWorld` (dữ liệu CPU
+thuần), rồi backend vẽ lên GPU.
+
+```text
+Game.frame
+  → run ECS systems
+  → extract Transform + SpriteRenderer
+  → cull theo Camera2D → sort + batch
+  → Backend.render(RenderWorld)
+```
+
+Đây là framework nền tảng đang phát triển, chưa phải engine production-ready.
 
 ## Yêu cầu
 
 - Zig 0.16.0.
-- WSL2/Linux để build và chạy sample WGPU; WSLg cần bật để mở cửa sổ đồ họa.
-- Các dependency Zig được khai báo trong `build.zig.zon`.
+- Linux x86_64 + WSLg (trên WSL) để build/chạy sample WGPU. Library và unit
+  tests build được trên mọi target.
+- Các dependency Zig khai báo trong `build.zig.zon` (`zglfw`, `zgpu`,
+  `zigimg`, Dawn).
 
-Nếu Zig cache trên `/mnt/c` hoặc `/mnt/d` gặp lỗi quyền truy cập, đặt cache về
-filesystem Linux:
+Nếu Zig cache trên `/mnt/c` hoặc `/mnt/d` lỗi quyền, đặt cache về filesystem
+Linux:
 
 ```sh
 export PATH="$HOME/.local/opt/zig-0.16.0:$PATH"
@@ -20,20 +33,21 @@ export ZIG_LOCAL_CACHE_DIR="$HOME/.cache/zig-local"
 
 ## Build và chạy
 
-Chạy từ thư mục repository trong WSL:
+Chạy từ thư mục repository:
 
 ```sh
-zig build             # Build thư viện
-zig build test        # Chạy unit tests
-zig build example     # Chạy ví dụ ECS + texture, không cần GPU
-zig build wgpu-clear  # Build sample sprite WGPU
+zig build             # Build thư viện tĩnh ez_engine
+zig build test        # Chạy toàn bộ unit tests
+zig build example     # Ví dụ headless (ECS + texture, không cần GPU)
+zig build wgpu-clear  # Build sample sprite WGPU (cần Linux x86_64)
 zig build wgpu-clear-run  # Chạy sample, cần WSLg
+zig build docs        # Xuất API docs ra zig-out/docs
 ```
 
-## Dùng như library
+Trên target khác Linux x86_64, các step desktop bị bỏ qua kèm warning; lib và
+tests vẫn build bình thường.
 
-Package `ez_engine` (`0.1.0-dev`, Zig 0.16.0). Migration từ tên cũ:
-`@import("game_lib")` → `@import("ez_engine")`.
+## Dùng như library
 
 ```sh
 zig fetch --save git+https://<repo-url>#<rev>
@@ -44,14 +58,27 @@ const engine = b.dependency("ez_engine", .{ .target = target, .optimize = optimi
 exe.root_module.addImport("ez_engine", engine.module("ez_engine"));
 ```
 
-`zig build docs` để xem API docs. Chi tiết đổi breaking xem `CHANGELOG.md`.
+Backend WGPU (`SpriteBackend.init`) nằm ở module riêng `wgpu_backend`, chỉ có
+trên Linux x86_64 và không export từ root để lib lõi không phụ thuộc `zgpu`:
+
+```zig
+const wgpu_backend = b.createModule(.{
+    .root_source_file = engine.path("src/gfx/wgpu/backend.zig"),
+    ...
+});
+wgpu_backend.addImport("ez_engine", engine.module("ez_engine"));
+wgpu_backend.addImport("zgpu", zgpu.module("root"));
+```
+
+Bảng export public và nguyên tắc API xem [docs/api.md](docs/api.md); breaking
+changes xem `CHANGELOG.md`.
 
 ## Hỗ trợ nền tảng
 
 | Target | Library + tests | `wgpu-clear` |
-|--------|-----------------|----------------|
+|--------|-----------------|--------------|
 | Linux x86_64 | ✅ | ✅ (cần WSLg trên WSL) |
-| Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning, chỉ build lib + tests |
+| Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning |
 
 ## Tạo và quản lý project game
 
@@ -63,29 +90,32 @@ python3 tools/ez_project.py new MyFirstGame
 python3 tools/ez_project.py list
 ```
 
-Đổi nơi lưu bằng `--workspace`, ví dụ:
+Đổi nơi lưu bằng `--workspace`:
 
 ```sh
 python3 tools/ez_project.py --workspace ~/Games new MyFirstGame
 python3 tools/ez_project.py --workspace ~/Games list
 ```
 
-Project có `project.json`, scene mẫu, thư mục `Assets/`, `Scenes/`, `src/` và
-`Build/`, cùng `build.zig` đã nối tới bản framework hiện tại. Trong project mới,
-chạy `zig build run` để build và chạy starter sample. Đọc
-[docs/project-management.md](docs/project-management.md) để biết chi tiết.
+Project có `project.json`, scene mẫu (`editor_scene.json`, định dạng
+`ez_engine.Scene`), thư mục `Assets/`, `Scenes/`, `src/`, `Build/`, cùng
+`build.zig` đã nối tới framework (gồm cả module `wgpu_backend`). Trong project
+mới chạy `zig build run` để build và chạy starter sample. Chi tiết xem
+[docs/project-management.md](docs/project-management.md).
 
-Sample đồ họa nằm ở `examples/wgpu_clear`; `assets/player_sheet.png` có một
-frame idle và bốn frame đi bộ. Dùng WASD để di chuyển, chạm vật phẩm màu cam
-để nhặt. Khi chạm hoặc rời tường, log `begin`/`end` sẽ hiện kèm ID entity;
-F3 bật/tắt frame stats. Camera bám theo nhân vật; nhấn Escape hoặc đóng cửa sổ
-để thoát.
+## Sample WGPU
 
-## Tạo sprite
+Sample nằm ở `examples/wgpu_clear` (gameplay thuần túy; backend render nằm
+trong lib). `assets/player_sheet.png` có một frame idle và bốn frame đi bộ.
+Dùng WASD để di chuyển, chạm vật phẩm màu cam để nhặt. Khi chạm hoặc rời
+tường, log `begin`/`end` hiện kèm ID entity; F3 bật/tắt frame stats. Camera
+bám theo nhân vật; nhấn Escape hoặc đóng cửa sổ để thoát.
+
+## Vẽ sprite
 
 `Game` sở hữu ECS, asset manager và render world. Thêm `Transform` cùng
-`SpriteRenderer` cho entity; `Game.frame` sẽ chạy systems, extract sprite,
-cull theo camera 2D, sắp thứ tự và gửi render world đến backend.
+`SpriteRenderer` cho entity; `Game.frame` chạy systems, extract sprite, cull
+theo camera 2D, sắp thứ tự và gửi render world đến backend.
 
 ```zig
 const texture = try game.assets.loadTextureFile(
@@ -109,27 +139,48 @@ try game.world.add(player, game.RenderComponents.SpriteRenderer{
 `size` dùng đơn vị world. Sprite xoay theo `Transform.rotation`, scale theo
 `Transform.scale`; `z_index` thấp hơn được vẽ trước. Texture được cache theo
 đường dẫn và trả về generational handle. Asset manager giữ pixel CPU; backend
-giữ texture GPU. Xem [docs/architecture.md](docs/architecture.md) để biết
-ownership và định dạng texture.
+giữ texture GPU. Ownership, animation, collision và định dạng texture xem
+[docs/architecture.md](docs/architecture.md).
+
+## Bố cục repository
+
+```text
+src/
+  root.zig            # Facade public của ez_engine (+ version)
+  game.zig            # Game: world, scheduler, assets, render_world, frame loop
+  ecs/                # World, Entity, Scheduler, Query (archetype-based)
+  math/               # Vec2/3/4, Quat, Mat4
+  core/               # handle, log, debug stats, time, allocator
+  gfx/                # render_world, render_components, camera2d, sprite_animation,
+                      # renderer (Backend vtable + Headless), texture, platform
+  gfx/wgpu/           # SpriteBackend (module riêng, chỉ Linux x86_64)
+  asset/              # Manager (cache handle), texture_loader (PNG + ZTEX)
+  audio/              # WAV decoder + software mixer (chưa có audio device)
+  input/              # Key/MouseButton/Input, không phụ thuộc OS
+  physics/            # Collision2D: overlap AABB + event (chưa có vật lý)
+  platform/           # GLFW window adapter
+  scene/              # Scene document: save/load JSON (ez_engine.Scene)
+examples/
+  sandbox/            # Headless minimal (không cần GPU)
+  wgpu_clear/         # Sample game WGPU đầy đủ (~200 dòng gameplay)
+tests/                # Test tích hợp (ECS, query, math, render_world, backend)
+tools/                # ez_project.py: new/list project
+```
 
 ## Phạm vi hiện tại
 
 - Sprite 2D: transform, tint, alpha blend, camera orthographic, culling và
   batching theo texture/layer liền kề.
-- Sprite sheet dạng lưới và animation ECS cơ bản.
-- Collider AABB 2D phát event begin/stay/end và đẩy vật thể solid ra khỏi
-  collider chồng lấn; chưa có mô phỏng vật lý.
-- Asset texture: PNG và định dạng nội bộ ZTEX RGBA8/BGRA8.
-- Có ECS, scheduler tuần tự, input state, decoder WAV/mixer phần mềm và
-  backend headless.
-- GLFW platform adapter dùng `Game.run`: bàn phím, chuột, scroll, đóng cửa sổ
-  và framebuffer resize.
-- Logger có level/category và debug stats tùy chọn cho frame, FPS, entity,
-  culling và render batch.
-- Scene document (`ez_engine.Scene`): tạo/chọn/xóa sprite, obstacle, pickup;
-  chỉnh transform; lưu/mở scene JSON.
-- Project manager CLI: tạo project từ starter, liệt kê theo workspace.
-- Chưa có renderer mesh/material, atlas, decoder JPEG, audio device, mô phỏng
-  vật lý hoặc pipeline đưa scene vào runtime game.
-
-Đây là framework nền tảng đang phát triển, chưa phải engine production-ready.
+- Sprite sheet dạng lưới đều + animation ECS cơ bản.
+- Collider AABB 2D phát event begin/stay/end, đẩy vật solid khỏi chồng lấn;
+  chưa có mô phỏng vật lý (lực, ma sát, CCD).
+- Asset texture: PNG (qua zigimg) và ZTEX nội bộ RGBA8/BGRA8; chưa có JPEG.
+- ECS archetype-based, scheduler tuần tự có kiểm tra dependency cycle, input
+  state, WAV decoder + mixer phần mềm (chưa có audio device).
+- GLFW adapter dùng `Game.run`: phím, chuột, scroll, đóng cửa sổ, resize.
+- Logger level/category và debug stats (frame, FPS, entity, culling, batch).
+- Scene document: object sprite/obstacle/pickup, lưu/mở JSON version 1.
+- Project manager CLI: tạo project từ starter (kèm `wgpu_backend`), liệt kê
+  theo workspace.
+- Chưa có: mesh/material 3D, packed atlas, audio device, vật lý mô phỏng,
+  pipeline đưa scene vào runtime, CI, license file.
