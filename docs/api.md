@@ -78,7 +78,8 @@ details; consumers only import `ez_engine`.
   (`error.UnsupportedSceneVersion` unless `version == 1`).
 - `Script`: `init(game, &behavior)` / `initWithStart(game, &behavior)` for
   structs with `pub onUpdate(*T, *Ctx) (!void|void)` (plus optional `pub
-  onStart` via `initWithStart`, runs on the first executed frame);
+  onStart` via `initWithStart`, runs on the first executed frame — plain
+  `init` silently ignores `onStart`);
   `register(&scheduler, name)`. `Script.Ctx{ world, game, dt }`.
 - `Script.Mover2D{ entity: ?Entity = null, speed: f32 = 260 }`:
   `update(&ctx) !Vec2` drives `Transform` with WASD + arrows, returns the

@@ -27,6 +27,7 @@ pub const Script = struct {
 
     /// Wraps any struct with `onUpdate(*T, *Ctx) (!void|void)`.
     /// Missing `onUpdate` is a compile error at the call site.
+    /// A defined `onStart` is silently ignored here — use `initWithStart`.
     pub fn init(game: *Game, behavior: anytype) Script {
         const T = @TypeOf(behavior.*);
         return .{
