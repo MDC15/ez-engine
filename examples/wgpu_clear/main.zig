@@ -2,33 +2,17 @@ const std = @import("std");
 const game_lib = @import("ez_engine");
 const App = @import("ez_app").App;
 
-const PlayerController = struct {
+const Player = struct {
     const Animation = game_lib.RenderComponents.SpriteAnimation;
     const idle_clip: Animation.Clip = .{ .first_frame = 0, .frame_count = 1, .frames_per_second = 1 };
     const walk_clip: Animation.Clip = .{ .first_frame = 1, .frame_count = 4, .frames_per_second = 8 };
 
-    game: *game_lib.Game,
-    input: *const game_lib.Input,
-    player: game_lib.Entity,
-    fn keyDown(input: *const game_lib.Input, code: u16) bool {
-        const state = input.keyCode(code) catch return false;
-        return state.down;
-    }
+    mover: game_lib.Script.Mover2D = .{},
 
-    fn update(context: ?*anyopaque, world: *game_lib.World, dt: f32) anyerror!void {
-        const self: *PlayerController = @ptrCast(@alignCast(context.?));
-        if (keyDown(self.input, 256)) self.game.running = false; // Escape
-        var direction = game_lib.Vec2.zero;
-        if (keyDown(self.input, 65)) direction.x -= 1; // A
-        if (keyDown(self.input, 68)) direction.x += 1; // D
-        if (keyDown(self.input, 83)) direction.y -= 1; // S
-        if (keyDown(self.input, 87)) direction.y += 1; // W
-        if (direction.x != 0 and direction.y != 0) direction = game_lib.Vec2.scale(direction, 0.70710678);
-        const transform = try world.get(self.player, game_lib.RenderComponents.Transform);
-        transform.position.x += direction.x * 260 * dt;
-        transform.position.y += direction.y * 260 * dt;
-
-        const animation = try world.get(self.player, Animation);
+    pub fn onUpdate(self: *Player, ctx: *game_lib.Script.Ctx) !void {
+        if (ctx.game.input.key(.escape).down) ctx.game.running = false;
+        const direction = try self.mover.update(ctx);
+        const animation = try ctx.world.get(self.mover.entity.?, Animation);
         animation.play(if (direction.x == 0 and direction.y == 0) idle_clip else walk_clip);
     }
 };
@@ -124,7 +108,7 @@ pub fn main(init: std.process.Init) !void {
     });
     try game.world.add(sprite, game_lib.RenderComponents.SpriteAnimation{
         .sheet = .{ .columns = 5, .rows = 1 },
-        .clip = PlayerController.idle_clip,
+        .clip = Player.idle_clip,
     });
     try game.world.add(sprite, game_lib.Collision2D.Collider2D{
         .size = .{ .x = 48, .y = 48 },
@@ -161,8 +145,10 @@ pub fn main(init: std.process.Init) !void {
         .solid = true,
         .is_static = true,
     });
-    var player_controller = PlayerController{ .game = game, .input = &game.input, .player = sprite };
-    _ = try game.scheduler.addSystem("Player movement", &player_controller, PlayerController.update);
+    var player = Player{};
+    player.mover.entity = sprite;
+    var player_script = game_lib.Script.init(game, &player);
+    try player_script.register(&game.scheduler, "Player movement");
     _ = try game.scheduler.addSystem("Sprite animation", null, game_lib.SpriteAnimation.updateSystem);
     var collisions = game_lib.Collision2D.System.init(allocator);
     defer collisions.deinit();
