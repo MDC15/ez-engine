@@ -1,6 +1,8 @@
 //! A modular, data-oriented game library. Gameplay and ECS modules do not
 //! depend on a graphics backend.
 
+pub const version: []const u8 = "0.1.0-dev";
+
 pub const World = @import("ecs/world.zig").World;
 pub const Entity = @import("ecs/entity.zig").Entity;
 pub const Scheduler = @import("ecs/scheduler.zig").Scheduler;
@@ -20,18 +22,16 @@ pub const Camera = @import("gfx/camera.zig").Camera;
 pub const Camera2D = @import("gfx/camera.zig").Camera2D;
 pub const CameraFollow2D = @import("gfx/camera_follow.zig");
 pub const Renderer = @import("gfx/renderer.zig");
-pub const Platform = @import("platform");
-pub const Input = @import("input_module").Input;
+pub const Platform = @import("ez_platform");
+pub const Input = @import("ez_input").Input;
 pub const Audio = @import("audio/audio.zig").Audio;
-pub const AssetStore = @import("asset/manager.zig").Store;
 pub const Assets = @import("asset/manager.zig").Manager;
 pub const Game = @import("game.zig").Game;
 pub const Time = @import("core/time.zig");
 pub const Logging = @import("core/log.zig");
 pub const Debug = @import("core/debug.zig");
 pub const AllocatorTools = @import("core/allocator.zig");
-pub const InputModule = @import("input_module");
-pub const AudioModule = @import("audio/audio.zig");
+pub const InputModule = @import("ez_input");
 pub const Texture = @import("gfx/texture.zig").Texture;
 pub const AssetLoading = struct {
     pub const Texture = @import("asset/texture_loader.zig");
@@ -55,7 +55,7 @@ test {
     _ = @import("core/debug.zig");
     _ = @import("core/allocator.zig");
     _ = @import("core/handle.zig");
-    _ = @import("input_module");
+    _ = @import("ez_input");
     _ = @import("asset/manager.zig");
     _ = @import("asset/texture_loader.zig");
     _ = @import("audio/audio.zig");
@@ -65,7 +65,7 @@ test {
     _ = @import("gfx/render_world.zig");
     _ = @import("gfx/sprite_animation.zig");
     _ = @import("physics/collision2d.zig");
-    _ = @import("platform");
+    _ = @import("ez_platform");
     _ = @import("gfx/texture.zig");
     _ = @import("game.zig");
 }

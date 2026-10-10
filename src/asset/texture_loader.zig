@@ -1,5 +1,5 @@
 const std = @import("std");
-const ZigImage = @import("zigimg_image");
+const ZigImage = @import("ez_zigimg");
 
 pub const PixelFormat = enum { rgba8, bgra8 };
 pub const TextureData = struct {

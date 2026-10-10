@@ -1,5 +1,5 @@
 const std = @import("std");
-const game = @import("game_lib");
+const game = @import("ez_engine");
 
 test "archetype migration and stale entity handles" {
     const Position = struct { x: f32 };

@@ -1,12 +1,12 @@
 const std = @import("std");
-const Input = @import("input_module").Input;
+const Input = @import("ez_input").Input;
 
 pub const Extent2D = struct { width: u32, height: u32 };
 
 pub const Event = union(enum) {
-    key: struct { code: @import("input_module").Key, down: bool },
+    key: struct { code: @import("ez_input").Key, down: bool },
     key_code: struct { code: u16, down: bool },
-    mouse_button: struct { button: @import("input_module").MouseButton, down: bool },
+    mouse_button: struct { button: @import("ez_input").MouseButton, down: bool },
     mouse_move: struct { x: f32, y: f32 },
     scroll: struct { x: f32, y: f32 },
     resized: Extent2D,

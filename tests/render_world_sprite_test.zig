@@ -1,5 +1,5 @@
 const std = @import("std");
-const game_lib = @import("game_lib");
+const game_lib = @import("ez_engine");
 
 test "sprite extract, cull and batch order locked" {
     var world = game_lib.World.init(std.testing.allocator);

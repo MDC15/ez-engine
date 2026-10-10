@@ -107,7 +107,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    glfw_window.addImport("game_lib", engine.module("game_lib"));
+    glfw_window.addImport("ez_engine", engine.module("ez_engine"));
     glfw_window.addImport("zglfw", zglfw.module("root"));
 
     const game_module = b.createModule(.{
@@ -115,7 +115,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    game_module.addImport("game_lib", engine.module("game_lib"));
+    game_module.addImport("ez_engine", engine.module("ez_engine"));
     game_module.addImport("zglfw", zglfw.module("root"));
     game_module.addImport("zgpu", zgpu.module("root"));
     game_module.addImport("glfw_window", glfw_window);

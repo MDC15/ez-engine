@@ -1,5 +1,5 @@
 const std = @import("std");
-const game = @import("game_lib");
+const game = @import("ez_engine");
 
 test "typed include exclude and optional queries" {
     const Position = struct { x: f32 };

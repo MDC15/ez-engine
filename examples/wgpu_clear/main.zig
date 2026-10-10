@@ -1,7 +1,7 @@
 const std = @import("std");
 const zglfw = @import("zglfw");
 const zgpu = @import("zgpu");
-const game_lib = @import("game_lib");
+const game_lib = @import("ez_engine");
 const GlfwWindow = @import("glfw_window").WindowAdapter;
 const wgpu = zgpu.wgpu;
 

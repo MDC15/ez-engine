@@ -1,5 +1,5 @@
 const zglfw = @import("zglfw");
-const game_lib = @import("game_lib");
+const game_lib = @import("ez_engine");
 const Platform = game_lib.Platform;
 
 /// GLFW window adapter for the engine's platform event and run-loop interface.

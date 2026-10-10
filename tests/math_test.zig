@@ -1,5 +1,5 @@
 const std = @import("std");
-const game = @import("game_lib");
+const game = @import("ez_engine");
 
 test "matrix and quaternion transform primitives" {
     const rotation = game.Quat.fromAxisAngle(.{ .z = 1 }, std.math.pi / 2.0);

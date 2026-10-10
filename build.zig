@@ -22,19 +22,19 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    platform.addImport("input_module", input);
+    platform.addImport("ez_input", input);
 
-    const game = b.addModule("game_lib", .{
+    const game = b.addModule("ez_engine", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
-    game.addImport("platform", platform);
-    game.addImport("input_module", input);
-    game.addImport("zigimg_image", zigimg_image);
+    game.addImport("ez_platform", platform);
+    game.addImport("ez_input", input);
+    game.addImport("ez_zigimg", zigimg_image);
 
     const library = b.addLibrary(.{
-        .name = "game_lib",
+        .name = "ez_engine",
         .linkage = .static,
         .root_module = game,
     });
@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        test_module.addImport("game_lib", game);
+        test_module.addImport("ez_engine", game);
         const tests = b.addTest(.{ .root_module = test_module });
         test_step.dependOn(&b.addRunArtifact(tests).step);
     }
@@ -65,7 +65,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    example_module.addImport("game_lib", game);
+    example_module.addImport("ez_engine", game);
     const example = b.addExecutable(.{
         .name = "sandbox",
         .root_module = example_module,
@@ -87,7 +87,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    wgpu_module.addImport("game_lib", game);
+    wgpu_module.addImport("ez_engine", game);
     wgpu_module.addImport("zglfw", zglfw.module("root"));
     wgpu_module.addImport("zgpu", zgpu.module("root"));
     const glfw_window = b.createModule(.{
@@ -95,7 +95,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    glfw_window.addImport("game_lib", game);
+    glfw_window.addImport("ez_engine", game);
     glfw_window.addImport("zglfw", zglfw.module("root"));
     wgpu_module.addImport("glfw_window", glfw_window);
 
@@ -126,7 +126,7 @@ pub fn build(b: *std.Build) void {
     editor_module.addImport("zglfw", zglfw.module("root"));
     editor_module.addImport("zgpu", zgpu.module("root"));
     editor_module.addImport("zgui", zgui.module("root"));
-    editor_module.addImport("game_lib", game);
+    editor_module.addImport("ez_engine", game);
     editor_module.addImport("glfw_window", glfw_window);
 
     const editor = b.addExecutable(.{

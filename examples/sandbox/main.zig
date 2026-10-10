@@ -1,5 +1,5 @@
 const std = @import("std");
-const game_lib = @import("game_lib");
+const game_lib = @import("ez_engine");
 
 /// Headless example showing the same asset and ECS sprite path without a
 /// window or GPU requirement.
