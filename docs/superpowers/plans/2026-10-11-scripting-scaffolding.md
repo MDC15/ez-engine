@@ -147,7 +147,7 @@ Chuyển nguyên khối setup từ `examples/wgpu_clear/main.zig` (window/graphi
 
 - [ ] **Step 2: Port example sang `App`, giữ nguyên gameplay**
 
-`main` còn: `App.init` → spawn entities/systems cũ → `app.run(init.io)` → `app.deinit()`. Xóa `GlfwWindow`/`zgpu.GraphicsContext`/`SpriteBackend` setup khỏi example.
+`main` còn: `App.init(&app, ...)` → spawn entities/systems cũ → `app.run(init.io)` → `app.deinit()`. Xóa `GlfwWindow`/`zgpu.GraphicsContext`/`SpriteBackend` setup khỏi example.
 
 - [ ] **Step 3: Verify build desktop + suite**
 

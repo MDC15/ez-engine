@@ -1,6 +1,0 @@
-{
-  "format_version": 1,
-  "name": "MyFirstGame",
-  "engine": "ez-engine",
-  "startup_scene": "editor_scene.json"
-}

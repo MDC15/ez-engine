@@ -5,3 +5,4 @@ zig-pkg/
 tools/__pycache__/
 imgui.ini
 .superpowers/
+projects/
