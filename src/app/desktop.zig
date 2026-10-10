@@ -17,11 +17,16 @@ pub const App = struct {
     backend: SpriteBackend,
     game: ez_engine.Game,
 
-    pub fn init(allocator: std.mem.Allocator, title: [:0]const u8, width: u32, height: u32) !App {
-        var window = try GlfwWindow.init(width, height, title);
-        errdefer window.deinit();
-        const graphics = try zgpu.GraphicsContext.create(allocator, .{
-            .window = window.native(),
+    /// Initializes in place through `self`: the backend's renderer context
+    /// and asset pointer must keep pointing at this `App`'s own fields for
+    /// the whole run, so callers provide stable storage instead of taking a
+    /// returned copy (returning `App` by value would dangle them).
+    pub fn init(self: *App, allocator: std.mem.Allocator, title: [:0]const u8, width: u32, height: u32) !void {
+        self.allocator = allocator;
+        self.window = try GlfwWindow.init(width, height, title);
+        errdefer self.window.deinit();
+        self.graphics = try zgpu.GraphicsContext.create(allocator, .{
+            .window = self.window.native(),
             .fn_getTime = @ptrCast(&zglfw.getTime),
             .fn_getFramebufferSize = @ptrCast(&zglfw.Window.getFramebufferSize),
             .fn_getWin32Window = @ptrCast(&zglfw.getWin32Window),
@@ -31,19 +36,15 @@ pub const App = struct {
             .fn_getWaylandSurface = @ptrCast(&zglfw.getWaylandWindow),
             .fn_getCocoaWindow = @ptrCast(&zglfw.getCocoaWindow),
         }, .{});
-        errdefer graphics.destroy(allocator);
-        var game = try ez_engine.Game.init(allocator, 2);
-        errdefer game.deinit();
-        var backend = try SpriteBackend.init(allocator, graphics, &game.assets);
-        errdefer backend.deinit();
-        game.renderer = backend.backend();
-        return .{
-            .allocator = allocator,
-            .window = window,
-            .graphics = graphics,
-            .backend = backend,
-            .game = game,
-        };
+        errdefer self.graphics.destroy(allocator);
+        self.game = try ez_engine.Game.init(allocator, 2);
+        errdefer self.game.deinit();
+        self.backend = try SpriteBackend.init(allocator, self.graphics, &self.game.assets);
+        errdefer self.backend.deinit();
+        self.game.renderer = self.backend.backend();
+        // Permanent guard: the renderer must resolve back to our own fields.
+        std.debug.assert(self.game.renderer.?.context == @as(*anyopaque, @ptrCast(&self.backend)));
+        std.debug.assert(self.backend.assets == &self.game.assets);
     }
 
     pub fn run(self: *App, io: std.Io) !void {

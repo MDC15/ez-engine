@@ -37,7 +37,8 @@ const PickupListener = struct {
 
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
-    var app = try App.init(allocator, "@TITLE@", 1280, 720);
+    var app: App = undefined;
+    try app.init(allocator, "@TITLE@", 1280, 720);
     defer app.deinit();
     const game = &app.game;
 

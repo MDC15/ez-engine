@@ -96,8 +96,10 @@ details; consumers only import `ez_engine`.
   `SpriteBackend.init(allocator, graphics, assets) !SpriteBackend`,
   `backend() Renderer.Backend`, `deinit()`. Import as its own module, not
   from `ez_engine` root.
-- `ez_app` (`src/app/desktop.zig`, Linux x86_64): `App.init(allocator,
-  title, width, height) !App` builds window + graphics + game + backend;
+- `ez_app` (`src/app/desktop.zig`, Linux x86_64): `App.init(&app, allocator,
+  title, width, height) !void` builds window + graphics + game + backend in
+  place (out-pointer: the backend must keep pointing at the `App`'s own
+  fields, so `App` is never returned by value);
   `run(io)` enters `Game.run`; `deinit()` tears down in reverse order
   (game first, so the backend is destroyed through the renderer).
 
