@@ -1,9 +1,11 @@
 const std = @import("std");
+const ez_engine = @import("ez_engine");
+const Scene = ez_engine.Scene;
 const zglfw = @import("zglfw");
 const zgpu = @import("zgpu");
 const zgui = @import("zgui");
 const GlfwWindow = @import("glfw_window").WindowAdapter;
-const Scene = @import("scene.zig");
+const Scene = ez_engine.Scene;
 const wgpu = zgpu.wgpu;
 
 const scene_path = "editor_scene.json";

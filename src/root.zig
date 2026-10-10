@@ -32,6 +32,7 @@ pub const Logging = @import("core/log.zig");
 pub const Debug = @import("core/debug.zig");
 pub const AllocatorTools = @import("core/allocator.zig");
 pub const InputModule = @import("ez_input");
+pub const Scene = @import("scene/scene.zig");
 pub const Texture = @import("gfx/texture.zig").Texture;
 pub const AssetLoading = struct {
     pub const Texture = @import("asset/texture_loader.zig");
@@ -65,6 +66,7 @@ test {
     _ = @import("gfx/render_world.zig");
     _ = @import("gfx/sprite_animation.zig");
     _ = @import("physics/collision2d.zig");
+    _ = @import("scene/scene.zig");
     _ = @import("ez_platform");
     _ = @import("gfx/texture.zig");
     _ = @import("game.zig");
