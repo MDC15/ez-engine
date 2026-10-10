@@ -17,7 +17,7 @@
 
 - Add `LICENSE` and `CONTRIBUTING.md`; tag `0.1.0`.
 - Add CI running `zig build`, `zig build test` and `zig fmt --check`.
-- Build a scene→runtime pipeline so `editor_scene.json` can spawn entities.
+- Build a scene→runtime pipeline so `Scenes/editor_scene.json` can spawn entities.
 
 Items are intentionally limited to work that extends the current framework;
 there is no production release checklist yet.

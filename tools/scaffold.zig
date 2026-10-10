@@ -17,8 +17,10 @@ const template_files = [_]TemplateFile{
     .{ .src = "build.zig", .dst = "build.zig", .name = true },
     .{ .src = "build.zig.zon", .dst = "build.zig.zon", .name = true, .engine_path = true },
     .{ .src = "src/main.zig", .dst = "src/main.zig", .title = true },
+    .{ .src = "src/scripts/player.zig", .dst = "src/scripts/player.zig" },
+    .{ .src = "src/scripts/pickup.zig", .dst = "src/scripts/pickup.zig" },
     .{ .src = "project.json", .dst = "project.json", .name = true },
-    .{ .src = "editor_scene.json", .dst = "editor_scene.json" },
+    .{ .src = "Scenes/editor_scene.json", .dst = "Scenes/editor_scene.json" },
     .{ .src = "README.md", .dst = "README.md", .name = true },
     .{ .src = ".gitignore", .dst = ".gitignore" },
 };
@@ -107,6 +109,12 @@ fn substitute(allocator: std.mem.Allocator, text: []const u8, file: TemplateFile
         const next = try std.mem.replaceOwned(u8, allocator, result, "@NAME@", name);
         allocator.free(result);
         result = next;
+        // build.zig.zon uses an enum literal (.name) which cannot contain
+        // "@NAME@" and still parse, so the template uses a valid identifier
+        // placeholder there instead.
+        const next_ident = try std.mem.replaceOwned(u8, allocator, result, "ez_template_game", name);
+        allocator.free(result);
+        result = next_ident;
     }
     if (file.title) {
         const next = try std.mem.replaceOwned(u8, allocator, result, "@TITLE@", title);
@@ -201,6 +209,7 @@ pub fn main(init: std.process.Init) !void {
         const filled = try substitute(allocator, text, file, ident, display, engine_path);
         defer allocator.free(filled);
         if (std.mem.indexOf(u8, filled, "@NAME@") != null or
+            std.mem.indexOf(u8, filled, "ez_template_game") != null or
             std.mem.indexOf(u8, filled, "@TITLE@") != null or
             std.mem.indexOf(u8, filled, "@ENGINE_PATH@") != null)
             fail("unsubstituted placeholder left in {s}", .{file.dst});

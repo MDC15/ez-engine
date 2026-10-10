@@ -17,7 +17,7 @@
 - Deleted the desktop editor (`examples/editor/`, `docs/editor.md`,
   `zig build editor(editor-run)` steps, `zgui` dependency, `open` subcommand
   in `tools/ez_project.py`). Scene editing is done by hand in
-  `editor_scene.json` (`ez_engine.Scene` format).
+  `Scenes/editor_scene.json` (`ez_engine.Scene` format).
 
 - Deleted the unused raw Vulkan wrapper (`src/gfx/vulkan/`, ~1900 lines).
   Samples render through `zgpu`, never through this module.
@@ -31,6 +31,11 @@
 
 ### Changed
 
+- Project template is organized Unity-style: `src/main.zig` only
+  bootstraps (window → load `Scenes/editor_scene.json` → spawn entities
+  → attach scripts → run), behaviors live one-per-file under
+  `src/scripts/` (`player.zig`, `pickup.zig`), and object
+  positions/sizes come from the scene JSON instead of hardcoded values.
 - Renamed the package and module from `game_lib` to `ez_engine`
   (version `0.1.0-dev`, `src/root.zig: version`). Migration:
   `@import("game_lib")` → `@import("ez_engine")`.

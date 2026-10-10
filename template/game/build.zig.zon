@@ -1,5 +1,5 @@
 .{
-    .name = .@NAME@,
+    .name = .ez_template_game,
     .version = "0.1.0",
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
@@ -17,5 +17,5 @@
             .hash = "N-V-__8AAK7XUQNKNRnv1J6i189jtURJKjp3HTftoyD4Y4CB",
         },
     },
-    .paths = .{ "build.zig", "build.zig.zon", "src", "Assets", "Scenes", "project.json", "editor_scene.json", "README.md" },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "Assets", "Scenes", "project.json", "README.md" },
 }

@@ -17,10 +17,13 @@ structure and refuses to overwrite an existing directory:
 MyFirstGame/
   build.zig            # wires ez_engine + wgpu_backend + ez_app, step `run`
   build.zig.zon        # deps pinned like the framework, fingerprint included
-  src/main.zig         # starter: App + Player script, pickup, wall, camera
+  src/main.zig         # bootstrap: window → load scene → spawn → scripts → run
+  src/scripts/         # one MonoBehaviour-style file per behavior
+  src/scripts/player.zig    # Player movement + animation
+  src/scripts/pickup.zig    # Collectible tag + pickup listener
   Assets/              # sample sprites copied from the framework
-  Scenes/              # for your scene files (ez_engine.Scene format)
-  editor_scene.json    # sample scene, format version 1
+  Scenes/              # scene files (ez_engine.Scene format)
+  Scenes/editor_scene.json  # sample scene, format version 1
   project.json         # name, format version, startup scene
   README.md            # where to go next
   .gitignore
@@ -32,10 +35,15 @@ From the project folder, build and run the starter window with:
 zig build run
 ```
 
-On WSL, WSLg must be available for the WGPU window. The starter includes an
-animated player (WASD/arrows), a pickup, and a wall collision sample — all
-written with the `Script` API from `docs/api.md`, so it doubles as the
-recommended starting point for your own behaviors.
+On WSL, WSLg must be available for the WGPU window. The starter is
+organized like Unity: `Scenes/editor_scene.json` holds every object's
+position and size, `src/main.zig` only bootstraps (window → load scene →
+spawn entities → attach scripts → run), and each behavior lives in its
+own file under `src/scripts/` (`Player` movement + animation, pickup
+listener, wall collision sample) — all written with the `Script` API
+from `docs/api.md`, so it doubles as the recommended starting point for
+your own behaviors. Edit the scene JSON to change gameplay without
+touching code.
 
 A project references this framework checkout by relative path; keep the
 checkout available at that path when building the game.
@@ -45,4 +53,6 @@ checkout available at that path when building the game.
 There is no visual editor. Edit scene JSON by hand following the
 `Scene.Document` schema (`id`, `kind: sprite|obstacle|pickup`, `position`,
 `size`; see `docs/architecture.md`), and spawn runtime entities in code —
-the starter constructs its entities programmatically.
+the starter constructs its entities programmatically. The sample scene lives
+at `Scenes/editor_scene.json` and `project.json` points `startup_scene`
+there.

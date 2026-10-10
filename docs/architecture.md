@@ -170,9 +170,11 @@ camera, debug) and behaviors for per-entity logic.
 `Object{id, kind: sprite|obstacle|pickup, position: [2]f32, size: [2]f32}`.
 `save(io, path)` writes `{version: 1, objects: [...]}` JSON; `load(io, path)`
 validates (`version == 1`, finite numbers, positive sizes) and rebuilds IDs
-with `next_id = max_id + 1`. The project starter ships an `editor_scene.json`
-example; there is no scene→runtime pipeline yet — games spawn entities in
-code.
+with `next_id = max_id + 1`. The project starter ships a
+`Scenes/editor_scene.json` example and maps its objects to entities in
+`src/main.zig` (one prefab fn per kind); there is no generic
+scene→runtime pipeline yet — per-kind spawn fns in the starter are the
+recommended pattern.
 
 ## Current limits
 

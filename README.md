@@ -92,8 +92,8 @@ thư mục nào):
 
 Mặc định project được tạo trong `projects/`. Lệnh sinh ra cấu trúc chuẩn
 (`build.zig` đã nối `ez_engine` + `wgpu_backend`, `build.zig.zon` kèm
-fingerprint, `src/main.zig` starter, `Assets/`, `Scenes/`,
-`editor_scene.json`, `project.json`, `README.md`, `.gitignore`), copy sẵn
+fingerprint, `src/main.zig` starter, `Assets/`,
+`Scenes/editor_scene.json`, `project.json`, `README.md`, `.gitignore`), copy sẵn
 assets mẫu. Chạy lần hai vào chỗ cũ sẽ báo lỗi sạch, không ghi đè. Trong
 project mới chạy `zig build run` để build và chạy starter sample. Chi tiết
 xem [docs/project-management.md](docs/project-management.md).
