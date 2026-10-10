@@ -184,7 +184,7 @@ examples/
   sandbox/            # Headless minimal (không cần GPU)
   wgpu_clear/         # Sample game WGPU đầy đủ (~200 dòng gameplay)
 tests/                # Test tích hợp (ECS, query, math, render_world, backend)
-tools/                # ez_project.py: new/list project
+tools/                # scaffold.zig: `zig build new` generator
 ```
 
 ## Phạm vi hiện tại
