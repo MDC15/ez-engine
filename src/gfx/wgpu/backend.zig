@@ -53,6 +53,128 @@ pub const SpriteBackend = struct {
         .deinit = deinitImpl,
     };
 
+    const sprite_shader =
+        \\struct VertexInput {
+        \\    @location(0) position: vec2<f32>,
+        \\    @location(1) uv: vec2<f32>,
+        \\    @location(2) tint: vec4<f32>,
+        \\};
+        \\struct VertexOutput {
+        \\    @builtin(position) position: vec4<f32>,
+        \\    @location(0) uv: vec2<f32>,
+        \\    @location(1) tint: vec4<f32>,
+        \\};
+        \\@vertex
+        \\fn vs_main(input: VertexInput) -> VertexOutput {
+        \\    var output: VertexOutput;
+        \\    output.position = vec4<f32>(input.position, 0.0, 1.0);
+        \\    output.uv = input.uv;
+        \\    output.tint = input.tint;
+        \\    return output;
+        \\}
+        \\@group(0) @binding(0) var sprite_texture: texture_2d<f32>;
+        \\@group(0) @binding(1) var sprite_sampler: sampler;
+        \\@fragment
+        \\fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+        \\    return textureSample(sprite_texture, sprite_sampler, input.uv) * input.tint;
+        \\}
+    ;
+
+    /// Creates the pipeline, sampler and vertex buffer. Owns all GPU objects;
+    /// release with `deinit`.
+    pub fn init(
+        allocator: std.mem.Allocator,
+        graphics: *zgpu.GraphicsContext,
+        assets: *ez_engine.Assets,
+    ) !SpriteBackend {
+        const texture_layout_entries = [_]wgpu.BindGroupLayoutEntry{
+            .{ .binding = 0, .visibility = .{ .fragment = true }, .texture = .{} },
+            .{ .binding = 1, .visibility = .{ .fragment = true }, .sampler = .{ .binding_type = .filtering } },
+        };
+        const texture_layout = graphics.device.createBindGroupLayout(.{
+            .entry_count = texture_layout_entries.len,
+            .entries = &texture_layout_entries,
+        });
+        errdefer texture_layout.release();
+        const layout_entries = [_]wgpu.BindGroupLayout{texture_layout};
+        const pipeline_layout = graphics.device.createPipelineLayout(.{
+            .bind_group_layout_count = layout_entries.len,
+            .bind_group_layouts = &layout_entries,
+        });
+        errdefer pipeline_layout.release();
+
+        var wgsl_descriptor = wgpu.ShaderModuleWGSLDescriptor{
+            .chain = .{ .next = null, .struct_type = .shader_module_wgsl_descriptor },
+            .code = sprite_shader,
+        };
+        const shader = graphics.device.createShaderModule(.{
+            .label = "ez-engine-sprite-shader",
+            .next_in_chain = @ptrCast(&wgsl_descriptor),
+        });
+        defer shader.release();
+        const attributes = [_]wgpu.VertexAttribute{
+            .{ .format = .float32x2, .offset = 0, .shader_location = 0 },
+            .{ .format = .float32x2, .offset = 8, .shader_location = 1 },
+            .{ .format = .float32x4, .offset = 16, .shader_location = 2 },
+        };
+        const vertex_buffers = [_]wgpu.VertexBufferLayout{.{
+            .array_stride = @sizeOf(SpriteVertex),
+            .attribute_count = attributes.len,
+            .attributes = &attributes,
+        }};
+        const blend = wgpu.BlendState{
+            .color = .{ .src_factor = .src_alpha, .dst_factor = .one_minus_src_alpha },
+            .alpha = .{ .src_factor = .one, .dst_factor = .one_minus_src_alpha },
+        };
+        const color_targets = [_]wgpu.ColorTargetState{.{
+            .format = graphics.swapchain_descriptor.format,
+            .blend = &blend,
+        }};
+        const fragment = wgpu.FragmentState{
+            .module = shader,
+            .entry_point = "fs_main",
+            .target_count = color_targets.len,
+            .targets = &color_targets,
+        };
+        const pipeline = graphics.device.createRenderPipeline(.{
+            .label = "ez-engine-sprite-pipeline",
+            .layout = pipeline_layout,
+            .vertex = .{
+                .module = shader,
+                .entry_point = "vs_main",
+                .buffer_count = vertex_buffers.len,
+                .buffers = &vertex_buffers,
+            },
+            .fragment = &fragment,
+        });
+        errdefer pipeline.release();
+        const sampler = graphics.device.createSampler(.{
+            .mag_filter = .nearest,
+            .min_filter = .nearest,
+            .mipmap_filter = .nearest,
+        });
+        errdefer sampler.release();
+        const vertex_buffer = graphics.device.createBuffer(.{
+            .label = "ez-engine-sprite-vertices",
+            .usage = .{ .vertex = true, .copy_dst = true },
+            .size = 4096 * @sizeOf(SpriteVertex),
+        });
+        return .{
+            .allocator = allocator,
+            .graphics = graphics,
+            .assets = assets,
+            .pipeline = pipeline,
+            .pipeline_layout = pipeline_layout,
+            .texture_layout = texture_layout,
+            .sampler = sampler,
+            .vertex_buffer = vertex_buffer,
+        };
+    }
+
+    pub fn deinit(self: *SpriteBackend) void {
+        deinitImpl(self);
+    }
+
     pub fn backend(self: *SpriteBackend) ez_engine.Renderer.Backend {
         return .{ .context = self, .vtable = &vtable };
     }

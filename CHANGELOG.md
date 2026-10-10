@@ -9,9 +9,10 @@
 - Removed undrawn mesh/material code (`src/gfx/mesh.zig`,
   `src/gfx/material.zig`, `src/asset/mesh_loader.zig`,
   `src/asset/shader_loader.zig`, `MeshRenderer` component). The render path
-  is now sprites-only.
-- Removed unused public aliases `AssetStore`, `AudioModule`
-  (`MeshHandle`, `MaterialHandle`, `ShaderHandle` retired with the code above).
+  is now sprites-only. Also retired `BackendKind.vulkan`, `VulkanSurface`,
+  the 3D `Camera` export and `Mesh/Material/Shader` handle aliases.
+- Removed public aliases `AssetStore`, `AudioModule`, `InputModule`; use
+  `Assets`, `Audio`, `Input` plus new `Key`/`MouseButton` exports.
 
 ### Changed
 
@@ -22,7 +23,9 @@
   `ez_zigimg`) to avoid collisions in consumers.
 - Moved the WGPU sprite backend from `examples/wgpu_clear/main.zig` to
   `src/gfx/wgpu/backend.zig` (separate `wgpu_backend` module, Linux x86_64
-  only; not exported from `ez_engine` root).
+  only; not exported from `ez_engine` root). The backend now owns pipeline
+  creation via `SpriteBackend.init(allocator, graphics, assets)` /
+  `deinit()`; the example is gameplay-only (~200 lines).
 - Promoted the editor scene document from `examples/editor/scene.zig` to
   `src/scene/scene.zig`, exported as `ez_engine.Scene`. Scene JSON
   (`version: 1`) is unchanged and still loads.

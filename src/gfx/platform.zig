@@ -45,33 +45,6 @@ pub const Window = struct {
     }
 };
 
-pub const VulkanSurface = struct {
-    context: *anyopaque,
-    required_instance_extensions: []const [*:0]const u8,
-    vtable: *const VTable,
-
-    pub const VTable = struct {
-        create: *const fn (*anyopaque, ?*anyopaque, *u64) anyerror!void,
-        destroy: *const fn (*anyopaque, ?*anyopaque, u64) void,
-        supports_present: *const fn (*anyopaque, ?*anyopaque, ?*anyopaque, u32, u64) anyerror!bool,
-    };
-
-    pub fn create(self: VulkanSurface, instance: ?*anyopaque) !u64 {
-        var surface: u64 = 0;
-        try self.vtable.create(self.context, instance, &surface);
-        if (surface == 0) return error.SurfaceCreationFailed;
-        return surface;
-    }
-
-    pub fn destroy(self: VulkanSurface, instance: ?*anyopaque, surface: u64) void {
-        self.vtable.destroy(self.context, instance, surface);
-    }
-
-    pub fn supportsPresent(self: VulkanSurface, instance: ?*anyopaque, physical_device: ?*anyopaque, family: u32, surface: u64) !bool {
-        return self.vtable.supports_present(self.context, instance, physical_device, family, surface);
-    }
-};
-
 pub fn feedInput(input: *Input, event: Event) void {
     switch (event) {
         .key => |key| input.setKey(key.code, key.down),

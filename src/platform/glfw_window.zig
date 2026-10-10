@@ -99,7 +99,7 @@ pub const WindowAdapter = struct {
     }
 
     fn onMouseButton(window: *zglfw.Window, button: zglfw.MouseButton, action: zglfw.Action, _: zglfw.Mods) callconv(.c) void {
-        const engine_button: ?game_lib.InputModule.MouseButton = switch (button) {
+        const engine_button: ?game_lib.MouseButton = switch (button) {
             .left => .left,
             .right => .right,
             .middle => .middle,

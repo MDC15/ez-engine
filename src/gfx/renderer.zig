@@ -2,7 +2,7 @@ const std = @import("std");
 const RenderWorld = @import("render_world.zig").RenderWorld;
 
 pub const Extent2D = struct { width: u32, height: u32 };
-pub const BackendKind = enum { headless, vulkan };
+pub const BackendKind = enum { headless };
 
 pub const Backend = struct {
     context: *anyopaque,

@@ -5,7 +5,6 @@ const zglfw = @import("zglfw");
 const zgpu = @import("zgpu");
 const zgui = @import("zgui");
 const GlfwWindow = @import("glfw_window").WindowAdapter;
-const Scene = ez_engine.Scene;
 const wgpu = zgpu.wgpu;
 
 const scene_path = "editor_scene.json";
