@@ -10,3 +10,4 @@ Task 3: Ruling: fingerprint regenerated to 0x419a7f6d1d385927 after rename (zig 
 Task 4: complete (tests: zig build test → PASS, zig build wgpu-clear → PASS)
 Task 4: Ruling: backend lives in src/gfx/wgpu/backend.zig as separate linux-only module, NOT exported from root.zig — core lib stays zgpu-free and cross-platform. Plan assumed lib export; cost if wrong: desktop consumers import wgpu_backend module instead of ez_engine.Wgpu.
 Task 4: Ruling: replaced `orelse unreachable` with `return error.InvalidTextureHandle` in backend draw loop — cost if wrong: none, strictly better diagnostics.
+Task 5: complete (tests: zig build test → PASS)

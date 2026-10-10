@@ -32,6 +32,29 @@ zig build editor      # Build editor, cần Linux x86_64
 zig build editor-run  # Chạy editor, cần WSLg
 ```
 
+## Dùng như library
+
+Package `ez_engine` (`0.1.0-dev`, Zig 0.16.0). Migration từ tên cũ:
+`@import("game_lib")` → `@import("ez_engine")`.
+
+```sh
+zig fetch --save git+https://<repo-url>#<rev>
+```
+
+```zig
+const engine = b.dependency("ez_engine", .{ .target = target, .optimize = optimize });
+exe.root_module.addImport("ez_engine", engine.module("ez_engine"));
+```
+
+`zig build docs` để xem API docs. Chi tiết đổi breaking xem `CHANGELOG.md`.
+
+## Hỗ trợ nền tảng
+
+| Target | Library + tests | `wgpu-clear` / `editor` |
+|--------|-----------------|-------------------------|
+| Linux x86_64 | ✅ | ✅ (cần WSLg trên WSL) |
+| Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning, chỉ build lib + tests |
+
 ## Tạo và quản lý project game
 
 Project manager tạo game project mới, liệt kê project trong workspace và mở

@@ -74,7 +74,19 @@ pub fn build(b: *std.Build) void {
     const example_step = b.step("example", "Run the headless sandbox example");
     example_step.dependOn(&b.addRunArtifact(example).step);
 
-    if (target.result.os.tag != .linux or target.result.cpu.arch != .x86_64) return;
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = library.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    });
+    const docs_step = b.step("docs", "Emit API documentation");
+    docs_step.dependOn(&install_docs.step);
+
+    const desktop_supported = target.result.os.tag == .linux and target.result.cpu.arch == .x86_64;
+    if (!desktop_supported) {
+        std.log.warn("desktop samples (wgpu-clear, editor) require Linux x86_64; only the library and tests are available", .{});
+        return;
+    }
 
     const zglfw = b.dependency("zglfw", .{
         .target = target,
