@@ -34,11 +34,15 @@ src/input/            OS-independent Key/MouseButton/Input with 1-frame edges
 src/physics/          Collision2D: discrete AABB overlap + events (no dynamics)
 src/platform/         GLFW window adapter → Platform.Window/Event
 src/scene/            Scene document: JSON save/load (ez_engine.Scene)
+src/script/           Script behaviors (onStart/onUpdate) + Mover2D
+src/app/              App helper (separate ez_app module, Linux x86_64 only)
+template/game/        standard project template for `zig build new`
+tools/scaffold.zig    project generator behind `zig build new`
 ```
 
-Core gameplay modules (`ecs`, `math`, `core`, `scene`) never touch a graphics
-backend. `src/gfx/wgpu/` is deliberately NOT exported from `root.zig` so the
-core library builds on every target without `zgpu`.
+Core gameplay modules (`ecs`, `math`, `core`, `scene`, `script`) never touch a graphics
+backend. `src/gfx/wgpu/` and `src/app/` are deliberately NOT exported from
+`root.zig` so the core library builds on every target without `zgpu`.
 
 ## Ownership
 

@@ -16,15 +16,21 @@ backend). Runtime tách gameplay khỏi GPU; sample WGPU dùng GLFW + Dawn.
 - **Asset**: handle generational cache theo path; PNG (zigimg) + ZTEX nội bộ.
 - **Khác**: input không phụ thuộc OS, WAV decode + mixer (chưa device),
   collision AABB + event begin/stay/end, logger level/category, debug stats,
-  `Scene` save/load JSON version 1, project CLI (`new`/`list`), 2 examples
-  (`sandbox`, `wgpu_clear`), test suite (`zig build test` xanh).
+  `Scene` save/load JSON version 1.
+- **Scripting**: behavior `onStart`/`onUpdate` (`Script.init/initWithStart` +
+  `register`), `Mover2D` built-in, `App` gom window + graphics + game.
+- **Scaffold**: `zig build new -Dname=...` sinh project chuẩn (starter dùng
+  App + Script, đã nối `wgpu_backend`), không cần Python.
+- **Ví dụ + test**: 2 examples (`sandbox`, `wgpu_clear`), suite
+  (`zig build test` xanh) gồm test script/mover/backend-interface.
 - **Docs**: README (tổng quan), `docs/architecture.md`, `docs/api.md`,
   `docs/project-management.md`, CHANGELOG, `zig build docs`.
 
 ## Đã xóa (không còn trong repo)
 
-Raw Vulkan wrapper, code mesh/material 3D, desktop editor + `zgui`, alias
-public trùng lặp, ~480MB artifacts. Chi tiết xem CHANGELOG.
+Raw Vulkan wrapper, code mesh/material 3D, desktop editor + `zgui`, Python
+project tool, alias public trùng lặp, ~480MB artifacts. Chi tiết xem
+CHANGELOG.
 
 ## Còn thiếu để thành lib hoàn chỉnh
 

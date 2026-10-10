@@ -180,10 +180,13 @@ src/
   physics/            # Collision2D: overlap AABB + event (chưa có vật lý)
   platform/           # GLFW window adapter
   scene/              # Scene document: save/load JSON (ez_engine.Scene)
+  script/             # Script behaviors (onStart/onUpdate) + Mover2D
+  app/                # App helper (module riêng ez_app, chỉ Linux x86_64)
+template/game/        # Project chuẩn cho `zig build new` (starter App + Script)
 examples/
   sandbox/            # Headless minimal (không cần GPU)
-  wgpu_clear/         # Sample game WGPU đầy đủ (~200 dòng gameplay)
-tests/                # Test tích hợp (ECS, query, math, render_world, backend)
+  wgpu_clear/         # Sample game WGPU (~160 dòng gameplay)
+tests/                # Test tích hợp (ECS, query, math, render_world, backend, script, mover)
 tools/                # scaffold.zig: `zig build new` generator
 ```
 
