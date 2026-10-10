@@ -76,6 +76,13 @@ details; consumers only import `ez_engine`.
 - `Scene.Document`: `init/deinit`, `add(kind) !id`, `remove(id) bool`,
   `get(id) ?*Object`, `save(io, path)`, `load(io, path)`
   (`error.UnsupportedSceneVersion` unless `version == 1`).
+- `Script`: `init(game, &behavior)` / `initWithStart(game, &behavior)` for
+  structs with `pub onUpdate(*T, *Ctx) (!void|void)` (plus optional `pub
+  onStart` via `initWithStart`, runs on the first executed frame);
+  `register(&scheduler, name)`. `Script.Ctx{ world, game, dt }`.
+- `Script.Mover2D{ entity: ?Entity = null, speed: f32 = 260 }`:
+  `update(&ctx) !Vec2` drives `Transform` with WASD + arrows, returns the
+  normalized direction; null entity → `error.UnboundEntity`.
 - `Renderer.Backend` vtable + `Renderer.Headless` test backend
   (`submitted_frames`, `submitted_items`).
 - `Scene`, `Logging`, `Debug`, `Time` (Clock/FixedStepper),
@@ -88,6 +95,10 @@ details; consumers only import `ez_engine`.
   `SpriteBackend.init(allocator, graphics, assets) !SpriteBackend`,
   `backend() Renderer.Backend`, `deinit()`. Import as its own module, not
   from `ez_engine` root.
+- `ez_app` (`src/app/desktop.zig`, Linux x86_64): `App.init(allocator,
+  title, width, height) !App` builds window + graphics + game + backend;
+  `run(io)` enters `Game.run`; `deinit()` tears down in reverse order
+  (game first, so the backend is destroyed through the renderer).
 
 ## Stability
 

@@ -82,26 +82,46 @@ changes xem `CHANGELOG.md`.
 
 ## Tạo và quản lý project game
 
-Project manager tạo game project mới và liệt kê project trong workspace.
-Mặc định project được tạo trong `projects/`:
+Tạo game project mới không cần Python:
 
 ```sh
-python3 tools/ez_project.py new MyFirstGame
-python3 tools/ez_project.py list
+zig build new -Dname=MyFirstGame
+zig build new -Dname=MyFirstGame -Dworkspace=~/Games
 ```
 
-Đổi nơi lưu bằng `--workspace`:
+Mặc định project được tạo trong `projects/`. Lệnh sinh ra cấu trúc chuẩn
+(`build.zig` đã nối `ez_engine` + `wgpu_backend`, `build.zig.zon` kèm
+fingerprint, `src/main.zig` starter, `Assets/`, `Scenes/`,
+`editor_scene.json`, `project.json`, `README.md`, `.gitignore`), copy sẵn
+assets mẫu. Chạy lần hai vào chỗ cũ sẽ báo lỗi sạch, không ghi đè. Trong
+project mới chạy `zig build run` để build và chạy starter sample. Chi tiết
+xem [docs/project-management.md](docs/project-management.md).
 
-```sh
-python3 tools/ez_project.py --workspace ~/Games new MyFirstGame
-python3 tools/ez_project.py --workspace ~/Games list
+## Viết gameplay bằng Script
+
+Behavior là struct thường có `pub fn onUpdate` (và `pub fn onStart` nếu cần
+khởi tạo), đăng ký một dòng thay cho system viết tay:
+
+```zig
+const Player = struct {
+    mover: game.Script.Mover2D = .{},
+
+    pub fn onUpdate(self: *Player, ctx: *game.Script.Ctx) !void {
+        const direction = try self.mover.update(ctx); // WASD + arrows
+        const animation = try ctx.world.get(self.mover.entity.?, game.RenderComponents.SpriteAnimation);
+        animation.play(if (direction.x == 0 and direction.y == 0) idle else walk);
+    }
+};
+
+var player = Player{};
+player.mover.entity = e;
+var script = game.Script.init(game, &player);
+try script.register(&game.scheduler, "Player movement");
 ```
 
-Project có `project.json`, scene mẫu (`editor_scene.json`, định dạng
-`ez_engine.Scene`), thư mục `Assets/`, `Scenes/`, `src/`, `Build/`, cùng
-`build.zig` đã nối tới framework (gồm cả module `wgpu_backend`). Trong project
-mới chạy `zig build run` để build và chạy starter sample. Chi tiết xem
-[docs/project-management.md](docs/project-management.md).
+Dùng `Script.initWithStart` khi behavior có `onStart` (chạy ở frame đầu
+tiên). `Mover2D` built-in đẩy `Transform` theo WASD/arrows với tốc độ
+mặc định 260 đơn vị/giây. Chi tiết API xem [docs/api.md](docs/api.md).
 
 ## Sample WGPU
 
@@ -180,7 +200,9 @@ tools/                # ez_project.py: new/list project
 - GLFW adapter dùng `Game.run`: phím, chuột, scroll, đóng cửa sổ, resize.
 - Logger level/category và debug stats (frame, FPS, entity, culling, batch).
 - Scene document: object sprite/obstacle/pickup, lưu/mở JSON version 1.
-- Project manager CLI: tạo project từ starter (kèm `wgpu_backend`), liệt kê
-  theo workspace.
+- Scripting Zig-native: behavior `onStart`/`onUpdate` + `Mover2D` built-in,
+  đăng ký một dòng qua `Script.register`.
+- Project scaffold: `zig build new -Dname=...` sinh cấu trúc project chuẩn
+  (starter dùng App + Script, đã nối `wgpu_backend`).
 - Chưa có: mesh/material 3D, packed atlas, audio device, vật lý mô phỏng,
   pipeline đưa scene vào runtime, CI, license file.

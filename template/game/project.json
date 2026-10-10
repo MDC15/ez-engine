@@ -1,0 +1,6 @@
+{
+  "format_version": 1,
+  "name": "@NAME@",
+  "engine": "ez-engine",
+  "startup_scene": "editor_scene.json"
+}

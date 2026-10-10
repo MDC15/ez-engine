@@ -1,0 +1,21 @@
+.{
+    .name = .@NAME@,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .ez_engine = .{ .path = "@ENGINE_PATH@" },
+        .zglfw = .{
+            .url = "git+https://github.com/zig-gamedev/zglfw#f04fdbfc5b6d8c9a12025013992ac1d48653931e",
+            .hash = "zglfw-0.10.0-dev-zgVDNNu5IQAk-UK7gIg0LWMmMzxj4sK9xCSTisLhjgI1",
+        },
+        .zgpu = .{
+            .url = "git+https://github.com/zig-gamedev/zgpu#e6d8103b3c34ce1d6aab4db86dedf9ac889b4e67",
+            .hash = "zgpu-0.12.0-dev-nqFT5DSoCACIu3-Gnwlg3Gv1if5vU5RBhpk8o6r6-vqk",
+        },
+        .dawn_x86_64_linux_gnu = .{
+            .url = "https://github.com/michal-z/webgpu_dawn-x86_64-linux-gnu/archive/7d70db023bf254546024629cbec5ee6113e12a42.tar.gz",
+            .hash = "N-V-__8AAK7XUQNKNRnv1J6i189jtURJKjp3HTftoyD4Y4CB",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "Assets", "Scenes", "project.json", "editor_scene.json", "README.md" },
+}

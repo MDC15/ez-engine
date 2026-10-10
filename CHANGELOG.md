@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Zig-native scripting: `ez_engine.Script` (`onUpdate`, optional `onStart`
+  via `initWithStart`, one-line `register`) plus built-in `Mover2D`.
+- Desktop `App` helper (`ez_app` module): window + graphics + game + backend
+  in `App.init`, `run`, `deinit`. The WGPU sample is gameplay-only.
+- `zig build new -Dname=...` scaffolding with a standard project template
+  (starter uses App + Script); the Python project tool is gone.
+
 ### Removed
 
 - Deleted the desktop editor (`examples/editor/`, `docs/editor.md`,

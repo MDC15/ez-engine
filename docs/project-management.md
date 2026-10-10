@@ -1,30 +1,29 @@
 # Project management
 
-`tools/ez_project.py` creates and lists local game projects for the current
-ez-engine checkout. Run it from WSL/Ubuntu with Python 3 and Zig on `PATH`.
-
-## Create a project
+Game projects are scaffolded with Zig itself — no Python needed. Run from
+the framework checkout:
 
 ```sh
-python3 tools/ez_project.py new MyFirstGame
+zig build new -Dname=MyFirstGame
+zig build new -Dname=MyFirstGame -Dworkspace=~/Games
 ```
 
-The default workspace is `projects/` beside the framework. To use another
-workspace:
+The default workspace is `projects/` beside the framework. The generator
+(`tools/scaffold.zig`, template in `template/game/`) creates the standard
+structure and refuses to overwrite an existing directory:
 
-```sh
-python3 tools/ez_project.py --workspace ~/Games new MyFirstGame
+```text
+MyFirstGame/
+  build.zig            # wires ez_engine + wgpu_backend + ez_app, step `run`
+  build.zig.zon        # deps pinned like the framework, fingerprint included
+  src/main.zig         # starter: App + Player script, pickup, wall, camera
+  Assets/              # sample sprites copied from the framework
+  Scenes/              # for your scene files (ez_engine.Scene format)
+  editor_scene.json    # sample scene, format version 1
+  project.json         # name, format version, startup scene
+  README.md            # where to go next
+  .gitignore
 ```
-
-The starter includes:
-
-- `project.json` with project name, format version and startup scene.
-- `editor_scene.json` in the `ez_engine.Scene` format (version 1).
-- `Assets/`, `Scenes/`, `src/` and `Build/` directories.
-- `build.zig` and `build.zig.zon`, wired to this framework checkout,
-  including the separate `wgpu_backend` module the starter imports.
-- `src/main.zig`, the WGPU/GLFW game loop (gameplay ported from
-  `examples/wgpu_clear`), and sample sprite textures.
 
 From the project folder, build and run the starter window with:
 
@@ -33,23 +32,16 @@ zig build run
 ```
 
 On WSL, WSLg must be available for the WGPU window. The starter includes an
-animated player, WASD movement, a pickup, and a wall collision sample.
+animated player (WASD/arrows), a pickup, and a wall collision sample — all
+written with the `Script` API from `docs/api.md`, so it doubles as the
+recommended starting point for your own behaviors.
 
-## List projects
-
-```sh
-python3 tools/ez_project.py list
-```
-
-The manager lists valid `project.json` files directly inside the workspace.
-Pass the same `--workspace` value to each command when projects are stored
-outside the default folder. A project uses a relative local dependency path
-to this framework checkout; keep the framework checkout available at that
-path when building the game.
+A project references this framework checkout by relative path; keep the
+checkout available at that path when building the game.
 
 ## Scene files
 
-There is no visual editor. Edit `editor_scene.json` by hand following the
+There is no visual editor. Edit scene JSON by hand following the
 `Scene.Document` schema (`id`, `kind: sprite|obstacle|pickup`, `position`,
 `size`; see `docs/architecture.md`), and spawn runtime entities in code —
 the starter constructs its entities programmatically.

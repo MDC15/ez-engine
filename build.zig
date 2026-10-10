@@ -82,6 +82,30 @@ pub fn build(b: *std.Build) void {
     const docs_step = b.step("docs", "Emit API documentation");
     docs_step.dependOn(&install_docs.step);
 
+    const new_name = b.option([]const u8, "name", "Project name for `zig build new`");
+    const new_workspace = b.option([]const u8, "workspace", "Projects folder for `zig build new` (default: projects/)");
+    const scaffold = b.addExecutable(.{
+        .name = "ez-new",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/scaffold.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const new_run = b.addRunArtifact(scaffold);
+    if (new_name) |n| {
+        new_run.addArg("--name");
+        new_run.addArg(n);
+    }
+    if (new_workspace) |w| {
+        new_run.addArg("--workspace");
+        new_run.addArg(w);
+    }
+    const new_step = b.step("new", "Scaffold a new game project (requires -Dname=...)");
+    new_step.dependOn(&new_run.step);
+    new_run.addArg("--engine");
+    new_run.addArg(b.build_root.path orelse ".");
+
     const desktop_supported = target.result.os.tag == .linux and target.result.cpu.arch == .x86_64;
     if (!desktop_supported) {
         std.log.warn("the wgpu-clear sample requires Linux x86_64; only the library and tests are available", .{});
