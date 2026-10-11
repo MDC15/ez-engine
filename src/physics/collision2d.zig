@@ -12,7 +12,16 @@ pub const Collider2D = struct {
     enabled: bool = true,
     solid: bool = false,
     is_static: bool = false,
+    /// Collision layer bit index (0..15). Like an id/tag for the collider.
+    layer: u4 = 0,
+    /// Which layers this collider reacts to. Default: every layer.
+    collides_with: u16 = 0xffff,
 };
+
+/// Mask with exactly `index` set — the bit that stands for layer `index`.
+pub fn layerBit(index: u4) u16 {
+    return @as(u16, 1) << index;
+}
 
 pub const EventKind = enum { begin, stay, end };
 
@@ -87,6 +96,7 @@ pub const System = struct {
         self.next_contacts.clearRetainingCapacity();
         for (self.bodies.items, 0..) |*lhs, lhs_index| {
             for (self.bodies.items[lhs_index + 1 ..]) |*rhs| {
+                if (!interacts(lhs.collider, rhs.collider)) continue;
                 if (!overlaps(lhs.*, rhs.*)) continue;
                 if (lhs.collider.solid and rhs.collider.solid) resolve(lhs, rhs);
                 const pair = orderedPair(lhs.entity, rhs.entity);
@@ -168,6 +178,12 @@ fn makeBody(entity: Entity, transform: *Components.Transform, collider: *Collide
 fn overlaps(lhs: Body, rhs: Body) bool {
     return @abs(lhs.center.x - rhs.center.x) <= lhs.half_size.x + rhs.half_size.x and
         @abs(lhs.center.y - rhs.center.y) <= lhs.half_size.y + rhs.half_size.y;
+}
+
+/// Two colliders interact only when both sides accept the other's layer.
+fn interacts(a: *const Collider2D, b: *const Collider2D) bool {
+    return (a.collides_with & layerBit(b.layer)) != 0 and
+        (b.collides_with & layerBit(a.layer)) != 0;
 }
 
 fn resolve(lhs: *Body, rhs: *Body) void {
@@ -283,4 +299,49 @@ test "solid dynamic collider is moved out of a static collider" {
     try std.testing.expectEqual(@as(f32, 20), (try world.get(player, Components.Transform)).position.x);
     try system.update(&world);
     try std.testing.expectEqual(@as(f32, 20), (try world.get(player, Components.Transform)).position.x);
+}
+
+test "non-matching layers produce no contact" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const a = try world.create();
+    const b = try world.create();
+    try world.add(a, Components.Transform{});
+    try world.add(b, Components.Transform{});
+    try world.add(a, Collider2D{ .size = .{ .x = 10, .y = 10 }, .layer = 1, .collides_with = layerBit(1) });
+    try world.add(b, Collider2D{ .size = .{ .x = 10, .y = 10 }, .layer = 2, .collides_with = layerBit(2) });
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try system.update(&world);
+    try std.testing.expectEqual(@as(usize, 0), system.active_contacts.items.len);
+}
+
+test "one-sided mask mismatch produces no contact" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const a = try world.create();
+    const b = try world.create();
+    try world.add(a, Components.Transform{});
+    try world.add(b, Components.Transform{});
+    try world.add(a, Collider2D{ .size = .{ .x = 10, .y = 10 }, .layer = 1, .collides_with = layerBit(1) | layerBit(2) });
+    try world.add(b, Collider2D{ .size = .{ .x = 10, .y = 10 }, .layer = 2, .collides_with = layerBit(2) });
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try system.update(&world);
+    try std.testing.expectEqual(@as(usize, 0), system.active_contacts.items.len);
+}
+
+test "matching layers still report a contact" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const a = try world.create();
+    const b = try world.create();
+    try world.add(a, Components.Transform{});
+    try world.add(b, Components.Transform{});
+    try world.add(a, Collider2D{ .size = .{ .x = 10, .y = 10 }, .layer = 1, .collides_with = layerBit(2) });
+    try world.add(b, Collider2D{ .size = .{ .x = 10, .y = 10 }, .layer = 2, .collides_with = layerBit(1) });
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try system.update(&world);
+    try std.testing.expectEqual(@as(usize, 1), system.active_contacts.items.len);
 }
