@@ -49,15 +49,44 @@ pub fn main(init: std.process.Init) !void {
     var collisions = ez_engine.Collision2D.System.init(allocator);
     defer collisions.deinit();
     collisions.setListener(game, Pickup.PickupListener.onContact);
-    _ = try game.scheduler.addSystem("2D collision", &collisions, ez_engine.Collision2D.System.updateSystem);
+    var physics = ez_engine.Physics2D.System{ .gravity = .zero }; // sample top-down: không có trọng lực
+    const physics_id = try game.scheduler.addSystem("2D physics", &physics, ez_engine.Physics2D.System.updateSystem);
+    const collision_id = try game.scheduler.addSystem("2D collision", &collisions, ez_engine.Collision2D.System.updateSystem);
+    try game.scheduler.dependsOn(physics_id, collision_id);
     var camera_follow = ez_engine.CameraFollow2D.System.init(&game.camera_2d, player.?);
     camera_follow.follow_speed = 7;
     _ = try game.scheduler.addSystem("Camera follow", &camera_follow, ez_engine.CameraFollow2D.System.updateSystem);
+
+    // Debug bật sẵn: log fps + số entity mỗi 60 frame.
+    game.debug.enabled = true;
+    game.logger.min_level = .debug;
+    var stats = StatsLogger{ .game = game };
+    _ = try game.scheduler.addSystem("Debug stats", &stats, StatsLogger.update);
 
     // 5. Chạy.
     game.logger.writeCategory(.info, "sample", "Move with WASD or arrow keys, grab the orange pickup");
     try app.run(init.io);
 }
+
+/// System nhỏ log fps + số entity mỗi 60 frame (debug bật sẵn trong main).
+const StatsLogger = struct {
+    game: *ez_engine.Game,
+    tick: u32 = 0,
+
+    fn update(context: ?*anyopaque, _: *ez_engine.World, _: f32) anyerror!void {
+        const self: *@This() = @ptrCast(@alignCast(context.?));
+        self.tick +%= 1;
+        if (self.tick % 60 != 0) return;
+        const stats = self.game.debug.stats;
+        try self.game.logger.formatCategory(
+            self.game.allocator,
+            .debug,
+            "stats",
+            "fps={d:.0} entities={d}",
+            .{ stats.fps, stats.entity_count },
+        );
+    }
+};
 
 // Prefab "player": hình lấy từ sprite sheet (hằng số theo art),
 // còn vị trí + collider lấy từ scene (sửa JSON là đổi gameplay).
@@ -77,6 +106,7 @@ fn spawnPlayer(game: *ez_engine.Game, texture: ez_engine.TextureHandle, object: 
     try game.world.add(entity, ez_engine.Collision2D.Collider2D{
         .size = .{ .x = object.size[0], .y = object.size[1] },
         .solid = true,
+        .layer = 1,
     });
     return entity;
 }
@@ -95,6 +125,8 @@ fn spawnPickup(game: *ez_engine.Game, texture: ez_engine.TextureHandle, object: 
     });
     try game.world.add(entity, ez_engine.Collision2D.Collider2D{
         .size = .{ .x = object.size[0], .y = object.size[1] },
+        .layer = 3,
+        .collides_with = ez_engine.Collision2D.layerBit(1),
     });
     try game.world.add(entity, Pickup.Collectible{});
 }
@@ -115,5 +147,7 @@ fn spawnWall(game: *ez_engine.Game, texture: ez_engine.TextureHandle, object: ez
         .size = .{ .x = object.size[0], .y = object.size[1] },
         .solid = true,
         .is_static = true,
+        .layer = 2,
+        .collides_with = ez_engine.Collision2D.layerBit(1) | ez_engine.Collision2D.layerBit(2),
     });
 }
