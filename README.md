@@ -40,6 +40,8 @@ zig build             # Build thư viện tĩnh ez_engine
 zig build test        # Chạy toàn bộ unit tests
 zig build wgpu        # Build sample sprite WGPU (cần Linux x86_64)
 zig build wgpu-run    # Chạy sample, cần WSLg
+zig build gl          # Build sample OpenGL (cần Linux x86_64)
+zig build gl-run      # Chạy sample OpenGL, cần WSLg
 zig build docs        # Xuất API docs ra zig-out/docs
 ```
 
@@ -74,10 +76,10 @@ changes xem `CHANGELOG.md`.
 
 ## Hỗ trợ nền tảng
 
-| Target | Library + tests | `wgpu` |
-|--------|-----------------|--------------|
-| Linux x86_64 | ✅ | ✅ (cần WSLg trên WSL) |
-| Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning |
+| Target | Library + tests | `wgpu` | `gl` |
+|--------|-----------------|--------|------|
+| Linux x86_64 | ✅ | ✅ (cần WSLg trên WSL) | ✅ (cần WSLg trên WSL) |
+| Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning | ⚠️ bỏ qua kèm warning |
 
 ## Tạo và quản lý project game
 
@@ -211,6 +213,21 @@ Dùng WASD để di chuyển, chạm vật phẩm màu cam để nhặt. Khi ch�
 tường, log `begin`/`end` hiện kèm ID entity; F3 bật/tắt frame stats. Camera
 bám theo nhân vật; nhấn Escape hoặc đóng cửa sổ để thoát.
 
+## Sample OpenGL
+
+Sample thứ hai nằm ở `examples/gl` (gameplay y hệt sample WGPU; backend
+render nằm trong `src/gfx/gl`). Build bằng `zig build gl`, chạy bằng:
+
+```sh
+GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA zig build gl-run
+```
+
+Trên WSL, Dawn không có Vulkan tăng tốc phần cứng nên sample WGPU phải chạy
+trên CPU; driver OpenGL-on-D3D12 của Mesa (`d3d12`) mới chạm tới được GPU rời.
+Hai biến môi trường chỉ chọn adapter — chọn driver vẫn là chuyện của môi
+trường, không phải của code. Không đặt biến, GL rơi về llvmpipe (phần mềm) và
+app log cảnh báo.
+
 ## Vẽ sprite
 
 `Game` sở hữu ECS, asset manager và render world. Thêm `Transform` cùng
@@ -254,6 +271,7 @@ src/
   gfx/                # render_world, render_components, camera2d, sprite_animation,
                       # renderer (Backend vtable + Headless), texture, platform
   gfx/wgpu/           # SpriteBackend (module riêng, chỉ Linux x86_64)
+  gfx/gl/             # SpriteBackend OpenGL (module riêng, chỉ Linux x86_64)
   asset/              # Manager (cache handle), texture_loader (PNG + ZTEX)
   audio/              # WAV decoder + software mixer (chưa có audio device)
   input/              # Key/MouseButton/Input + InputMap, không phụ thuộc OS
@@ -265,6 +283,7 @@ src/
 template/game/        # Project chuẩn cho `zig build new` (starter App + Script)
 examples/
   wgpu/               # Sample game WGPU (~160 dòng gameplay)
+  gl/                 # Sample game OpenGL (gameplay y hệt WGPU)
 tests/                # Test tích hợp (ECS, query, math, render_world, backend, script, mover, input)
 tools/                # scaffold.zig: `zig build new` generator
 ```
