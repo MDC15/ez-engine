@@ -21,9 +21,9 @@ pub const App = struct {
     /// and asset pointer must keep pointing at this `App`'s own fields for
     /// the whole run, so callers provide stable storage instead of taking a
     /// returned copy (returning `App` by value would dangle them).
-    pub fn init(self: *App, allocator: std.mem.Allocator, title: [:0]const u8, width: u32, height: u32) !void {
+    pub fn init(self: *App, allocator: std.mem.Allocator, title: [:0]const u8, width: u32, height: u32, resizable: bool) !void {
         self.allocator = allocator;
-        self.window = try GlfwWindow.init(width, height, title);
+        self.window = try GlfwWindow.init(width, height, title, resizable);
         errdefer self.window.deinit();
         self.graphics = try zgpu.GraphicsContext.create(allocator, .{
             .window = self.window.native(),

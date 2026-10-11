@@ -94,7 +94,7 @@ const DebugReporter = struct {
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
     var app: App = undefined;
-    try app.init(allocator, "ez-engine | textured 2D sprites", 1280, 720);
+    try app.init(allocator, "ez-engine | textured 2D sprites", 1280, 720, false);
     defer app.deinit();
     var game = &app.game;
     const player_sheet = try game.assets.loadTextureFile(init.io, "assets/player_sheet.png", 16 * 1024 * 1024);

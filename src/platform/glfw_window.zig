@@ -15,11 +15,12 @@ pub const WindowAdapter = struct {
         .should_close = shouldCloseImpl,
     };
 
-    pub fn init(width: u32, height: u32, title: [:0]const u8) !WindowAdapter {
+    pub fn init(width: u32, height: u32, title: [:0]const u8, resizable: bool) !WindowAdapter {
         try zglfw.init();
         errdefer zglfw.terminate();
 
         zglfw.windowHint(.client_api, .no_api);
+        zglfw.windowHint(.resizable, resizable);
         const native_window = try zglfw.Window.create(@intCast(width), @intCast(height), title, null, null);
         errdefer native_window.destroy();
 

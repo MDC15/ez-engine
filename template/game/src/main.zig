@@ -18,7 +18,7 @@ pub fn main(init: std.process.Init) !void {
 
     // 1. Cửa sổ + game (như Unity mở viewport).
     var app: App = undefined;
-    try app.init(allocator, WINDOW_TITLE, 1280, 720);
+    try app.init(allocator, WINDOW_TITLE, 1280, 720, false);
     defer app.deinit();
     const game = &app.game;
 
