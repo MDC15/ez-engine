@@ -81,12 +81,19 @@ changes xem `CHANGELOG.md`.
 
 ## Tạo và quản lý project game
 
-Tạo game project mới bằng `zig build new` (chạy từ thư mục checkout của
-framework, không cần Python):
+Build CLI một lần từ thư mục checkout của framework, sau đó thêm `zig-out/bin`
+vào `PATH` trong shell hiện tại:
 
 ```sh
-zig build new -Dname=MyFirstGame
-zig build new -Dname=MyFirstGame -Dworkspace="$HOME/Games"
+zig build install
+export PATH="$PWD/zig-out/bin:$PATH"
+```
+
+Tạo game project mới (không cần Python):
+
+```sh
+ez build new MyFirstGame
+ez build new MyFirstGame --workspace="$HOME/Games"
 ```
 
 Mặc định project được tạo trong `projects/`. Lệnh sinh ra cấu trúc chuẩn

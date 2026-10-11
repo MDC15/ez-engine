@@ -1,11 +1,17 @@
 # Project management
 
-Game projects are scaffolded from the framework checkout with `zig build new`
-— no Python needed:
+Build the CLI once from the framework checkout and add it to `PATH`:
 
 ```sh
-zig build new -Dname=MyFirstGame
-zig build new -Dname=MyFirstGame -Dworkspace="$HOME/Games"
+zig build install
+export PATH="$PWD/zig-out/bin:$PATH"
+```
+
+Then scaffold a game project from the framework checkout — no Python needed:
+
+```sh
+ez build new MyFirstGame
+ez build new MyFirstGame --workspace="$HOME/Games"
 ```
 
 The default workspace is `projects/` beside the framework. The generator

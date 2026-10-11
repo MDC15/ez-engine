@@ -94,6 +94,19 @@ pub fn build(b: *std.Build) void {
     new_run.addArg("--engine");
     new_run.addArg(b.build_root.path orelse ".");
 
+    const cli = b.addExecutable(.{
+        .name = "ez",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/ez_cli.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    b.installArtifact(cli);
+    const cli_run = b.addRunArtifact(cli);
+    const cli_step = b.step("ez", "Run the project management CLI");
+    cli_step.dependOn(&cli_run.step);
+
     const desktop_supported = target.result.os.tag == .linux and target.result.cpu.arch == .x86_64;
     if (!desktop_supported) {
         std.log.warn("the wgpu sample requires Linux x86_64; only the library and tests are available", .{});
