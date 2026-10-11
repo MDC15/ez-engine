@@ -84,7 +84,7 @@ pub const Script = struct {
     fn systemFn(context: ?*anyopaque, world: *World, dt: f32) anyerror!void {
         const self: *Script = @ptrCast(@alignCast(context.?));
         var ctx = Ctx{ .world = world, .game = self.game, .dt = dt };
-        if (self.game.frame_index == 0) {
+        if (self.game.update_count == 0) {
             if (self.start_fn) |start| try start(self.ptr, &ctx);
         }
         try self.update_fn(self.ptr, &ctx);

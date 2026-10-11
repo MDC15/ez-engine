@@ -64,3 +64,22 @@ test "onStart never runs for systems registered after the first frame" {
     try game.frame(1.0 / 60.0);
     try std.testing.expectEqual(@as(u32, 0), late.starts);
 }
+
+test "onStart runs on the first update even when the loop starts paused" {
+    var game = try ez_engine.Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop.pause();
+
+    var counter = Counter{};
+    var script = ez_engine.Script.initWithStart(&game, &counter);
+    try script.register(&game.scheduler, "PausedCounter");
+
+    try game.tick(0.25);
+    try std.testing.expectEqual(@as(u32, 0), counter.starts);
+    try std.testing.expectEqual(@as(u32, 0), counter.updates);
+
+    game.loop.unpause();
+    try game.tick(0.25);
+    try std.testing.expectEqual(@as(u32, 1), counter.starts);
+    try std.testing.expectEqual(@as(u32, 1), counter.updates);
+}

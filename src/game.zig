@@ -35,6 +35,7 @@ pub const Game = struct {
     reclaimer: Reclaimer,
     renderer: ?Backend = null,
     frame_index: u64 = 0,
+    update_count: u64 = 0,
     running: bool = false,
     framebuffer_extent: Platform.Extent2D = .{ .width = 0, .height = 0 },
     rendered_extent: Platform.Extent2D = .{ .width = 0, .height = 0 },
@@ -82,6 +83,7 @@ pub const Game = struct {
     pub fn update(self: *Game, dt: f32) !void {
         if (!std.math.isFinite(dt) or dt < 0) return error.InvalidDeltaTime;
         try self.scheduler.run(&self.world, dt);
+        self.update_count += 1;
     }
 
     pub fn present(self: *Game, frame_seconds: f32) !void {
