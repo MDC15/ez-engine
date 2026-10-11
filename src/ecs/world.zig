@@ -21,6 +21,7 @@ pub const World = struct {
     free_ids: std.ArrayListUnmanaged(u32) = .empty,
     components: std.ArrayListUnmanaged(ComponentInfo) = .empty,
     archetypes: std.ArrayListUnmanaged(Archetype) = .empty,
+    pending_destroys: std.ArrayListUnmanaged(Entity) = .empty,
 
     pub const Error = error{
         InvalidEntity,
@@ -43,6 +44,7 @@ pub const World = struct {
         self.components.deinit(self.allocator);
         self.records.deinit(self.allocator);
         self.free_ids.deinit(self.allocator);
+        self.pending_destroys.deinit(self.allocator);
     }
 
     pub fn create(self: *World) !Entity {
@@ -80,6 +82,31 @@ pub const World = struct {
         entity_slot.generation +%= 1;
         if (entity_slot.generation == 0) entity_slot.generation = 1;
         self.free_ids.appendAssumeCapacity(entity.id);
+    }
+
+    /// Queue an entity for destruction at a safe boundary (end of frame).
+    /// Destroying while a query is iterating is unsafe; use `flushDeferred`.
+    pub fn destroyDeferred(self: *World, entity: Entity) !void {
+        try self.pending_destroys.append(self.allocator, entity);
+    }
+
+    /// Destroys every queued entity. Already-dead entities are dropped; an
+    /// entity whose destroy fails with OutOfMemory stays queued for a retry.
+    pub fn flushDeferred(self: *World) void {
+        var index: usize = 0;
+        while (index < self.pending_destroys.items.len) {
+            const entity = self.pending_destroys.items[index];
+            if (self.destroy(entity)) {
+                _ = self.pending_destroys.swapRemove(index);
+            } else |err| switch (err) {
+                error.InvalidEntity => _ = self.pending_destroys.swapRemove(index),
+                else => index += 1,
+            }
+        }
+    }
+
+    pub fn pendingDestroyCount(self: *const World) usize {
+        return self.pending_destroys.items.len;
     }
 
     pub fn isAlive(self: *const World, entity: Entity) bool {
@@ -301,3 +328,26 @@ test "archetype migration, removal, entity reuse, and typed query" {
     try std.testing.expect(entity.generation != reused.generation);
     try std.testing.expectError(World.Error.InvalidEntity, world.get(entity, Transform));
 }
+
+test "destroyDeferred queues until flush and ignores already dead" {
+    const Tag = struct { x: f32 };
+
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const a = try world.create();
+    const b = try world.create();
+    try world.add(a, Tag{ .x = 1 });
+    try world.destroyDeferred(a);
+    try world.destroyDeferred(b);
+    try world.destroyDeferred(a);
+
+    try std.testing.expect(world.isAlive(a));
+    try std.testing.expectEqual(@as(usize, 3), world.pendingDestroyCount());
+
+    world.flushDeferred();
+    try std.testing.expect(!world.isAlive(a));
+    try std.testing.expect(!world.isAlive(b));
+    try std.testing.expectEqual(@as(usize, 0), world.pendingDestroyCount());
+}
+
