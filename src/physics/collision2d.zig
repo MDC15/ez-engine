@@ -3,6 +3,7 @@ const Entity = @import("../ecs/entity.zig").Entity;
 const World = @import("../ecs/world.zig").World;
 const Components = @import("../gfx/render_components.zig");
 const Vec2 = @import("../math/vec2.zig").Vec2;
+const Physics2D = @import("physics2d.zig");
 
 /// Axis-aligned box centered at Transform.position plus the scaled offset.
 /// Rotation is ignored. Solid colliders resolve overlap; triggers only report it.
@@ -53,6 +54,9 @@ const Body = struct {
     half_size: Vec2,
     transform: *Components.Transform,
     collider: *Collider2D,
+    velocity: ?*Physics2D.Velocity,
+    restitution: f32,
+    movable: bool,
 };
 
 /// ECS overlap system. Contact buffers are reused between frames.
@@ -89,7 +93,7 @@ pub const System = struct {
         var query = world.query(.{ Components.Transform, Collider2D });
         while (query.next()) |item| {
             if (!item.Collider2D.enabled) continue;
-            const body = try makeBody(item.entity, item.Transform, item.Collider2D);
+            const body = try makeBody(world, item.entity, item.Transform, item.Collider2D);
             try self.bodies.append(self.allocator, body);
         }
 
@@ -144,7 +148,7 @@ pub const System = struct {
     }
 };
 
-fn makeBody(entity: Entity, transform: *Components.Transform, collider: *Collider2D) error{InvalidCollider}!Body {
+fn makeBody(world: *World, entity: Entity, transform: *Components.Transform, collider: *Collider2D) error{InvalidCollider}!Body {
     const values = [_]f32{
         transform.position.x, transform.position.y, transform.scale.x, transform.scale.y,
         collider.offset.x,    collider.offset.y,    collider.size.x,   collider.size.y,
@@ -166,12 +170,22 @@ fn makeBody(entity: Entity, transform: *Components.Transform, collider: *Collide
         !std.math.isFinite(half_size.x) or !std.math.isFinite(half_size.y))
         return error.InvalidCollider;
 
+    const velocity: ?*Physics2D.Velocity = world.get(entity, Physics2D.Velocity) catch null;
+    const rigid: ?*Physics2D.RigidBody2D = world.get(entity, Physics2D.RigidBody2D) catch null;
+    const movable = if (rigid) |body|
+        body.body_type == .dynamic
+    else
+        collider.solid and !collider.is_static;
+
     return .{
         .entity = entity,
         .center = center,
         .half_size = half_size,
         .transform = transform,
         .collider = collider,
+        .velocity = velocity,
+        .restitution = if (rigid) |body| body.restitution else 0,
+        .movable = movable,
     };
 }
 
@@ -187,6 +201,8 @@ fn interacts(a: *const Collider2D, b: *const Collider2D) bool {
 }
 
 fn resolve(lhs: *Body, rhs: *Body) void {
+    if (!lhs.movable and !rhs.movable) return;
+
     const dx = lhs.center.x - rhs.center.x;
     const dy = lhs.center.y - rhs.center.y;
     const penetration_x = lhs.half_size.x + rhs.half_size.x - @abs(dx);
@@ -198,16 +214,29 @@ fn resolve(lhs: *Body, rhs: *Body) void {
     const penetration = if (direction.x != 0) penetration_x else penetration_y;
     if (penetration <= 0) return;
 
-    if (lhs.collider.is_static and rhs.collider.is_static) return;
-    if (lhs.collider.is_static) {
-        moveBody(rhs, Vec2.scale(direction, -penetration));
-    } else if (rhs.collider.is_static) {
+    if (lhs.movable and !rhs.movable) {
         moveBody(lhs, Vec2.scale(direction, penetration));
+    } else if (!lhs.movable and rhs.movable) {
+        moveBody(rhs, Vec2.scale(direction, -penetration));
     } else {
         const half_penetration = penetration * 0.5;
         moveBody(lhs, Vec2.scale(direction, half_penetration));
         moveBody(rhs, Vec2.scale(direction, -half_penetration));
     }
+
+    if (lhs.movable) bounce(lhs, direction);
+    if (rhs.movable) bounce(rhs, Vec2.scale(direction, -1));
+}
+
+/// Remove the velocity component going into the contact and reflect it by the
+/// body's restitution. `normal` points away from the other body.
+fn bounce(body: *Body, normal: Vec2) void {
+    const velocity = body.velocity orelse return;
+    const normal_speed = Vec2.dot(velocity.linear, normal);
+    if (normal_speed >= 0) return;
+    const factor = 1 + body.restitution;
+    velocity.linear.x -= normal.x * normal_speed * factor;
+    velocity.linear.y -= normal.y * normal_speed * factor;
 }
 
 fn moveBody(body: *Body, delta: Vec2) void {
@@ -344,4 +373,61 @@ test "matching layers still report a contact" {
     defer system.deinit();
     try system.update(&world);
     try std.testing.expectEqual(@as(usize, 1), system.active_contacts.items.len);
+}
+
+test "dynamic body falling onto a static floor separates and stops" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const player = try world.create();
+    const floor = try world.create();
+    try world.add(player, Components.Transform{ .position = .{ .y = 6 } });
+    try world.add(player, Collider2D{ .size = .{ .x = 10, .y = 10 }, .solid = true });
+    try world.add(player, Physics2D.Velocity{ .linear = .{ .y = -20 } });
+    try world.add(player, Physics2D.RigidBody2D{});
+    try world.add(floor, Components.Transform{});
+    try world.add(floor, Collider2D{ .size = .{ .x = 10, .y = 10 }, .solid = true, .is_static = true });
+
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try system.update(&world);
+    try std.testing.expectEqual(@as(f32, 10), (try world.get(player, Components.Transform)).position.y);
+    try std.testing.expectEqual(@as(f32, 0), (try world.get(player, Physics2D.Velocity)).linear.y);
+}
+
+test "restitution one reflects the normal velocity" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const player = try world.create();
+    const floor = try world.create();
+    try world.add(player, Components.Transform{ .position = .{ .y = 6 } });
+    try world.add(player, Collider2D{ .size = .{ .x = 10, .y = 10 }, .solid = true });
+    try world.add(player, Physics2D.Velocity{ .linear = .{ .y = -20 } });
+    try world.add(player, Physics2D.RigidBody2D{ .restitution = 1 });
+    try world.add(floor, Components.Transform{});
+    try world.add(floor, Collider2D{ .size = .{ .x = 10, .y = 10 }, .solid = true, .is_static = true });
+
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try system.update(&world);
+    try std.testing.expectEqual(@as(f32, 20), (try world.get(player, Physics2D.Velocity)).linear.y);
+}
+
+test "kinematic body is not pushed by an overlapping dynamic body" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const moving = try world.create();
+    const platform = try world.create();
+    try world.add(moving, Components.Transform{ .position = .{ .x = 6 } });
+    try world.add(moving, Collider2D{ .size = .{ .x = 10, .y = 10 }, .solid = true });
+    try world.add(moving, Physics2D.Velocity{});
+    try world.add(moving, Physics2D.RigidBody2D{});
+    try world.add(platform, Components.Transform{});
+    try world.add(platform, Collider2D{ .size = .{ .x = 10, .y = 10 }, .solid = true });
+    try world.add(platform, Physics2D.RigidBody2D{ .body_type = .kinematic });
+
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try system.update(&world);
+    try std.testing.expectEqual(@as(f32, 0), (try world.get(platform, Components.Transform)).position.x);
+    try std.testing.expectEqual(@as(f32, 10), (try world.get(moving, Components.Transform)).position.x);
 }
