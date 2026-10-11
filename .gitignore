@@ -6,3 +6,6 @@ tools/__pycache__/
 imgui.ini
 .superpowers/
 projects/
+
+# Local worktrees
+.worktrees/
