@@ -130,6 +130,45 @@ pub fn build(b: *std.Build) void {
     ez_app.addImport("zgpu", zgpu.module("root"));
     ez_app.addImport("glfw_window", glfw_window);
     ez_app.addImport("wgpu_backend", wgpu_backend);
+
+    const gl_backend = b.createModule(.{
+        .root_source_file = b.path("src/gfx/gl/backend.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    gl_backend.addImport("ez_engine", game);
+    gl_backend.addImport("zglfw", zglfw.module("root"));
+    const gl_app = b.createModule(.{
+        .root_source_file = b.path("src/app/gl_desktop.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    gl_app.addImport("ez_engine", game);
+    gl_app.addImport("zglfw", zglfw.module("root"));
+    gl_app.addImport("glfw_window", glfw_window);
+    gl_app.addImport("gl_backend", gl_backend);
+    const gl_module = b.createModule(.{
+        .root_source_file = b.path("examples/gl/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    gl_module.addImport("ez_engine", game);
+    gl_module.addImport("gl_app", gl_app);
+
+    const gl = b.addExecutable(.{
+        .name = "gl",
+        .root_module = gl_module,
+        .use_llvm = true,
+    });
+    gl.root_module.linkLibrary(zglfw.artifact("glfw"));
+    gl.root_module.linkSystemLibrary("GL", .{});
+    gl.root_module.linkSystemLibrary("X11", .{});
+
+    const build_gl = b.step("gl", "Build the OpenGL sprite sample");
+    build_gl.dependOn(&gl.step);
+    const run_gl = b.step("gl-run", "Run the OpenGL sprite sample");
+    run_gl.dependOn(&b.addRunArtifact(gl).step);
+
     const wgpu_module = b.createModule(.{
         .root_source_file = b.path("examples/wgpu/main.zig"),
         .target = target,
