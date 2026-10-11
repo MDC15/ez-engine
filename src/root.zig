@@ -31,6 +31,7 @@ pub const Audio = @import("audio/audio.zig").Audio;
 pub const Assets = @import("asset/manager.zig").Manager;
 pub const Game = @import("game.zig").Game;
 pub const Time = @import("core/time.zig");
+pub const GameLoop = @import("core/game_loop.zig").GameLoop;
 pub const Logging = @import("core/log.zig");
 pub const Debug = @import("core/debug.zig");
 pub const AllocatorTools = @import("core/allocator.zig");
@@ -55,6 +56,7 @@ test {
     _ = @import("math/quat.zig");
     _ = @import("math/mat4.zig");
     _ = @import("core/time.zig");
+    _ = @import("core/game_loop.zig");
     _ = @import("core/log.zig");
     _ = @import("core/debug.zig");
     _ = @import("core/allocator.zig");

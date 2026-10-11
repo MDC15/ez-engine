@@ -46,7 +46,7 @@ pub const GameLoop = struct {
     pub fn init() GameLoop;                       // variable
     pub fn initFixed(step_seconds: f64, max_steps: u32) !GameLoop;
     pub fn pause(self: *GameLoop) void;
-    pub fn resume(self: *GameLoop) void;
+    pub fn unpause(self: *GameLoop) void;
     pub fn stop(self: *GameLoop) void;
     pub fn isStopped(self: GameLoop) bool;
     pub fn stepCount(self: *GameLoop, frame_seconds: f64) u32;

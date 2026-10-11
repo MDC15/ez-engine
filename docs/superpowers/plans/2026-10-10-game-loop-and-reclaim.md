@@ -46,7 +46,7 @@ Input classes / failure modes the spec implies but no existing test exercises; t
   - `pub const Timing = union(enum) { variable, fixed: FixedStepper };`
   - `pub const GameLoop = struct { state: State = .running, timing: Timing = .variable, time_scale: f64 = 1, max_frame_seconds: f64 = 0.25, ... }`
   - `pub fn init() GameLoop`, `pub fn initFixed(step_seconds: f64, max_steps: u32) !GameLoop`
-  - `pub fn pause(*GameLoop) void`, `resume`, `stop`, `isStopped(GameLoop) bool`
+  - `pub fn pause(*GameLoop) void`, `unpause`, `stop`, `isStopped(GameLoop) bool`
   - `pub fn clampFrameSeconds(GameLoop, frame_seconds: f64) f64`
   - `pub fn stepCount(*GameLoop, frame_seconds: f64) u32`
   - `pub fn stepSeconds(GameLoop, frame_seconds: f64) f64`
@@ -79,7 +79,7 @@ test "pause and stop gate stepping" {
     var loop = GameLoop.init();
     loop.pause();
     try std.testing.expectEqual(@as(u32, 0), loop.stepCount(0.1));
-    loop.resume();
+    loop.unpause();
     try std.testing.expectEqual(@as(u32, 1), loop.stepCount(0.1));
     loop.stop();
     try std.testing.expect(loop.isStopped());
@@ -137,7 +137,7 @@ pub const GameLoop = struct {
     }
 
     pub fn pause(self: *GameLoop) void { self.state = .paused; }
-    pub fn resume(self: *GameLoop) void { self.state = .running; }
+    pub fn unpause(self: *GameLoop) void { self.state = .running; }
     pub fn stop(self: *GameLoop) void { self.state = .stopped; }
     pub fn isStopped(self: GameLoop) bool { return self.state == .stopped; }
 
@@ -721,7 +721,7 @@ test "onStart runs on the first update even when the loop starts paused" {
     try std.testing.expectEqual(@as(u32, 0), counter.starts);
     try std.testing.expectEqual(@as(u32, 0), counter.updates);
 
-    game.loop.resume();
+    game.loop.unpause();
     try game.tick(0.25);
     try std.testing.expectEqual(@as(u32, 1), counter.starts);
     try std.testing.expectEqual(@as(u32, 1), counter.updates);
@@ -897,7 +897,7 @@ Extend the `Script.Ctx{ world, game, dt }` line to `{ world, game, dt, frame_all
 Under `## Unreleased` → `### Added`, append:
 ```
 - Managed game loop: `GameLoop` (variable/fixed timestep via `FixedStepper`,
-  `time_scale`, pause/resume/stop, frame-time clamp) and `Game.tick`; `Game`
+  `time_scale`, pause/unpause/stop, frame-time clamp) and `Game.tick`; `Game`
   gains split `update`/`present` (with `frame(dt)` unchanged).
 - Automatic end-of-frame reclamation: `World.destroyDeferred`/`flushDeferred`,
   `Reclaimer` + per-frame `FrameArena` (`Game.frameAllocator`,
@@ -907,7 +907,7 @@ Under `## Unreleased` → `### Added`, append:
 
 - [ ] **Step 6: Update `README.md`**
 
-Add a short "Game loop & dọn rác" section documenting: choose `variable` (default) or `game.loop = try GameLoop.initFixed(step, max_steps)`; `loop.pause()/resume()/stop()`; `game.destroyDeferred(entity)` destroys at end of frame; `game.frameAllocator()` / `ctx.frame_allocator` are reclaimed each frame.
+Add a short "Game loop & dọn rác" section documenting: choose `variable` (default) or `game.loop = try GameLoop.initFixed(step, max_steps)`; `loop.pause()/unpause()/stop()`; `game.destroyDeferred(entity)` destroys at end of frame; `game.frameAllocator()` / `ctx.frame_allocator` are reclaimed each frame.
 
 - [ ] **Step 7: Full verification**
 
