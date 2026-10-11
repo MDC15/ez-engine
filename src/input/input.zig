@@ -161,6 +161,20 @@ pub const Input = struct {
         self.scroll_y = 0;
     }
 
+    /// Clears pressed/released edges while keeping held state. Call after the
+    /// first simulation step of a frame so edge-triggered actions fire once
+    /// even when a frame runs several fixed steps.
+    pub fn clearEdges(self: *Input) void {
+        for (&self.keys) |*button| {
+            button.pressed = false;
+            button.released = false;
+        }
+        for (&self.mouse_buttons) |*button| {
+            button.pressed = false;
+            button.released = false;
+        }
+    }
+
     pub fn setKey(self: *Input, code: Key, down: bool) void {
         self.keys[@intFromEnum(code)].update(down);
     }
@@ -258,4 +272,15 @@ test "key enum covers standard named keys" {
     try std.testing.expectEqual(@as(u16, 340), @intFromEnum(Key.left_shift));
     try std.testing.expectEqual(@as(u16, 348), @intFromEnum(Key.menu));
     try std.testing.expectEqual(@as(u16, 335), @intFromEnum(Key.kp_enter));
+}
+
+test "clearEdges drops edges but keeps held state" {
+    var input: Input = .{};
+    input.setKey(.space, true);
+    input.setMouseButton(.left, true);
+    input.clearEdges();
+    try std.testing.expect(input.isDown(.space));
+    try std.testing.expect(!input.justPressed(.space));
+    try std.testing.expect(input.mouseButton(.left).down);
+    try std.testing.expect(!input.mouseButton(.left).pressed);
 }
