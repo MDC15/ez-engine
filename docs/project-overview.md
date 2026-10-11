@@ -21,7 +21,7 @@ backend). Runtime tách gameplay khỏi GPU; sample WGPU dùng GLFW + Dawn.
   `register`), `Mover2D` built-in, `App` gom window + graphics + game.
 - **Scaffold**: `zig build new -Dname=...` sinh project chuẩn (starter dùng
   App + Script, đã nối `wgpu_backend`), không cần Python.
-- **Ví dụ + test**: 1 example (`wgpu_clear`), suite
+- **Ví dụ + test**: 1 example (`wgpu`), suite
   (`zig build test` xanh) gồm test script/mover/backend-interface.
 - **Docs**: README (tổng quan), `docs/architecture.md`, `docs/api.md`,
   `docs/project-management.md`, CHANGELOG, `zig build docs`.

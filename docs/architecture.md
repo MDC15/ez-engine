@@ -75,7 +75,7 @@ All backends implement `Renderer.Backend` (`resize`, `render`, `waitIdle`,
   Textures upload on first use keyed by `(generation << 32) | index`.
   The sample submits directly to the WebGPU queue.
 
-The WGPU sample (`examples/wgpu_clear`, ~200 lines) is gameplay only: player
+The WGPU sample (`examples/wgpu`, ~200 lines) is gameplay only: player
 controller, sprite animation, collision listener, camera follow and debug
 reporter systems. Window and input come from `src/platform/glfw_window.zig`,
 which owns GLFW init and translates callbacks into `Platform.Event`; pass

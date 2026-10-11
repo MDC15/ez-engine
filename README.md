@@ -38,8 +38,8 @@ Chạy từ thư mục repository:
 ```sh
 zig build             # Build thư viện tĩnh ez_engine
 zig build test        # Chạy toàn bộ unit tests
-zig build wgpu-clear  # Build sample sprite WGPU (cần Linux x86_64)
-zig build wgpu-clear-run  # Chạy sample, cần WSLg
+zig build wgpu        # Build sample sprite WGPU (cần Linux x86_64)
+zig build wgpu-run    # Chạy sample, cần WSLg
 zig build docs        # Xuất API docs ra zig-out/docs
 ```
 
@@ -74,7 +74,7 @@ changes xem `CHANGELOG.md`.
 
 ## Hỗ trợ nền tảng
 
-| Target | Library + tests | `wgpu-clear` |
+| Target | Library + tests | `wgpu` |
 |--------|-----------------|--------------|
 | Linux x86_64 | ✅ | ✅ (cần WSLg trên WSL) |
 | Windows / macOS / khác | ✅ | ⚠️ bỏ qua kèm warning |
@@ -205,7 +205,7 @@ Trong behavior, dùng `ctx.frame_allocator` cho dữ liệu chỉ sống trong f
 
 ## Sample WGPU
 
-Sample nằm ở `examples/wgpu_clear` (gameplay thuần túy; backend render nằm
+Sample nằm ở `examples/wgpu` (gameplay thuần túy; backend render nằm
 trong lib). `assets/player_sheet.png` có một frame idle và bốn frame đi bộ.
 Dùng WASD để di chuyển, chạm vật phẩm màu cam để nhặt. Khi chạm hoặc rời
 tường, log `begin`/`end` hiện kèm ID entity; F3 bật/tắt frame stats. Camera
@@ -264,7 +264,7 @@ src/
   app/                # App helper (module riêng ez_app, chỉ Linux x86_64)
 template/game/        # Project chuẩn cho `zig build new` (starter App + Script)
 examples/
-  wgpu_clear/         # Sample game WGPU (~160 dòng gameplay)
+  wgpu/               # Sample game WGPU (~160 dòng gameplay)
 tests/                # Test tích hợp (ECS, query, math, render_world, backend, script, mover, input)
 tools/                # scaffold.zig: `zig build new` generator
 ```

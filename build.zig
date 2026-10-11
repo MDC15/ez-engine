@@ -96,7 +96,7 @@ pub fn build(b: *std.Build) void {
 
     const desktop_supported = target.result.os.tag == .linux and target.result.cpu.arch == .x86_64;
     if (!desktop_supported) {
-        std.log.warn("the wgpu-clear sample requires Linux x86_64; only the library and tests are available", .{});
+        std.log.warn("the wgpu sample requires Linux x86_64; only the library and tests are available", .{});
         return;
     }
 
@@ -131,7 +131,7 @@ pub fn build(b: *std.Build) void {
     ez_app.addImport("glfw_window", glfw_window);
     ez_app.addImport("wgpu_backend", wgpu_backend);
     const wgpu_module = b.createModule(.{
-        .root_source_file = b.path("examples/wgpu_clear/main.zig"),
+        .root_source_file = b.path("examples/wgpu/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -143,7 +143,7 @@ pub fn build(b: *std.Build) void {
     wgpu_module.addImport("glfw_window", glfw_window);
 
     const wgpu = b.addExecutable(.{
-        .name = "wgpu-clear",
+        .name = "wgpu",
         .root_module = wgpu_module,
         .use_llvm = true,
     });
@@ -155,8 +155,8 @@ pub fn build(b: *std.Build) void {
     wgpu.root_module.addLibraryPath(dawn.path(""));
     wgpu.root_module.linkSystemLibrary("dawn", .{});
 
-    const build_wgpu = b.step("wgpu-clear", "Build the WGPU sprite sample");
+    const build_wgpu = b.step("wgpu", "Build the WGPU sprite sample");
     build_wgpu.dependOn(&wgpu.step);
-    const run_wgpu = b.step("wgpu-clear-run", "Run the WGPU sprite sample");
+    const run_wgpu = b.step("wgpu-run", "Run the WGPU sprite sample");
     run_wgpu.dependOn(&b.addRunArtifact(wgpu).step);
 }

@@ -55,6 +55,9 @@
 
 ### Changed
 
+- Renamed the WGPU sample: `examples/wgpu_clear` → `examples/wgpu`, and the
+  build steps `zig build wgpu-clear` / `wgpu-clear-run` → `zig build wgpu` /
+  `zig build wgpu-run`.
 - Project template is organized Unity-style: `src/main.zig` only
   bootstraps (window → load `Scenes/editor_scene.json` → spawn entities
   → attach scripts → run), behaviors live one-per-file under
@@ -68,7 +71,7 @@
   `@import("game_lib")` → `@import("ez_engine")`.
 - Internal imports are now namespaced (`ez_platform`, `ez_input`,
   `ez_zigimg`) to avoid collisions in consumers.
-- Moved the WGPU sprite backend from `examples/wgpu_clear/main.zig` to
+- Moved the WGPU sprite backend from `examples/wgpu/main.zig` to
   `src/gfx/wgpu/backend.zig` (separate `wgpu_backend` module, Linux x86_64
   only; not exported from `ez_engine` root). The backend now owns pipeline
   creation via `SpriteBackend.init(allocator, graphics, assets)` /
