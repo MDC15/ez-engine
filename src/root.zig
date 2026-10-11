@@ -18,6 +18,7 @@ pub const RenderWorld = @import("gfx/render_world.zig").RenderWorld;
 pub const RenderComponents = @import("gfx/render_components.zig");
 pub const SpriteAnimation = @import("gfx/sprite_animation.zig");
 pub const Collision2D = @import("physics/collision2d.zig");
+pub const Physics2D = @import("physics/physics2d.zig");
 pub const Camera2D = @import("gfx/camera.zig").Camera2D;
 pub const CameraFollow2D = @import("gfx/camera_follow.zig");
 pub const Renderer = @import("gfx/renderer.zig");
@@ -73,6 +74,7 @@ test {
     _ = @import("gfx/render_world.zig");
     _ = @import("gfx/sprite_animation.zig");
     _ = @import("physics/collision2d.zig");
+    _ = @import("physics/physics2d.zig");
     _ = @import("scene/scene.zig");
     _ = @import("script/script.zig");
     _ = @import("ez_platform");
