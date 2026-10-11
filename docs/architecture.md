@@ -153,12 +153,14 @@ formats are not decoded.
 ## Scripting
 
 Gameplay behaviors are plain structs. `Script.init(&game, &behavior)` adapts
-any struct with `pub onUpdate(*T, *Ctx)` into an ECS system registered with
-one `script.register(&scheduler, name)` call — no manual `@ptrCast` or
-`world.get` boilerplate at the call site. `Ctx` exposes `world`, `game` and
-`dt`. `Script.initWithStart` additionally wires `pub onStart`, which runs on
-the first executed frame (register before the first frame to get it). Errors
-from behaviors propagate through `Game.frame` like handwritten systems.
+any struct with `pub onUpdate(*T, *Ctx)` — or the ctx-free
+`pub onUpdate(*T, *Game, f32)` (both may return `void` or `!void`) — into an
+ECS system registered with one `script.register(&scheduler, name)` call — no
+manual `@ptrCast` or `world.get` boilerplate at the call site. `Ctx` exposes
+`world`, `game` and `dt`. `Script.initWithStart` additionally wires
+`pub onStart` (either `*Ctx` or `*Game`), which runs on the first executed
+frame (register before the first frame to get it). Errors from behaviors
+propagate through `Game.frame` like handwritten systems.
 `Script.Mover2D` is a ready-made WASD/arrows mover returning its direction
 for reuse (e.g. animation selection). Handwritten `UpdateFn` systems keep
 working unchanged; use them for cross-entity logic (collision listeners,

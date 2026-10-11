@@ -152,3 +152,39 @@ test "ctx-free behavior may return void" {
     try game.frame(1.0 / 60.0);
     try std.testing.expectEqual(@as(u32, 1), behavior.updates);
 }
+
+const LegacyVoid = struct {
+    updates: u32 = 0,
+    pub fn onUpdate(self: *LegacyVoid, _: *ez_engine.Script.Ctx) void {
+        self.updates += 1;
+    }
+};
+
+test "ctx behavior may return void" {
+    var game = try ez_engine.Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    var behavior = LegacyVoid{};
+    var script = ez_engine.Script.init(&game, &behavior);
+    try script.register(&game.scheduler, "LegacyVoid");
+    try game.frame(1.0 / 60.0);
+    try std.testing.expectEqual(@as(u32, 1), behavior.updates);
+}
+
+const ModernStartVoid = struct {
+    starts: u32 = 0,
+    pub fn onStart(self: *ModernStartVoid, _: *ez_engine.Game) void {
+        self.starts += 1;
+    }
+    pub fn onUpdate(_: *ModernStartVoid, _: *ez_engine.Game, _: f32) void {}
+};
+
+test "ctx-free onStart may return void" {
+    var game = try ez_engine.Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    var behavior = ModernStartVoid{};
+    var script = ez_engine.Script.initWithStart(&game, &behavior);
+    try script.register(&game.scheduler, "ModernStartVoid");
+    try game.frame(1.0 / 60.0);
+    try game.frame(1.0 / 60.0);
+    try std.testing.expectEqual(@as(u32, 1), behavior.starts);
+}

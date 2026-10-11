@@ -9,10 +9,10 @@ const Player = struct {
 
     mover: game_lib.Script.Mover2D = .{},
 
-    pub fn onUpdate(self: *Player, ctx: *game_lib.Script.Ctx) !void {
-        if (ctx.game.input.isDown(.escape)) ctx.game.running = false;
-        const direction = try self.mover.update(ctx);
-        const animation = try ctx.world.get(self.mover.entity.?, Animation);
+    pub fn onUpdate(self: *Player, game: *game_lib.Game, dt: f32) !void {
+        if (game.input.isDown(.escape)) game.running = false;
+        const direction = try self.mover.update(game, dt);
+        const animation = try game.world.get(self.mover.entity.?, Animation);
         animation.play(if (direction.x == 0 and direction.y == 0) idle_clip else walk_clip);
     }
 };

@@ -57,7 +57,7 @@ pub fn main(init: std.process.Init) !void {
     camera_follow.follow_speed = 7;
     _ = try game.scheduler.addSystem("Camera follow", &camera_follow, ez_engine.CameraFollow2D.System.updateSystem);
 
-    // Debug bật sẵn: log fps + số entity mỗi 60 frame.
+    // Debug bật sẵn: log fps + số entity mỗi 60 bước mô phỏng.
     game.debug.enabled = true;
     game.logger.min_level = .debug;
     var stats = StatsLogger{ .game = game };
@@ -68,7 +68,7 @@ pub fn main(init: std.process.Init) !void {
     try app.run(init.io);
 }
 
-/// System nhỏ log fps + số entity mỗi 60 frame (debug bật sẵn trong main).
+/// System nhỏ log fps + số entity mỗi 60 bước mô phỏng (debug bật sẵn trong main).
 const StatsLogger = struct {
     game: *ez_engine.Game,
     tick: u32 = 0,
