@@ -41,6 +41,9 @@
   in `tools/ez_project.py`). Scene editing is done by hand in
   `Scenes/editor_scene.json` (`ez_engine.Scene` format).
 
+- Removed the headless `sandbox` example and the `zig build example` step;
+  the headless backend is still covered by `tests/backend_iface_test.zig`.
+
 - Deleted the unused raw Vulkan wrapper (`src/gfx/vulkan/`, ~1900 lines).
   Samples render through `zgpu`, never through this module.
 - Removed undrawn mesh/material code (`src/gfx/mesh.zig`,

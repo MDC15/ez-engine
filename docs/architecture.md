@@ -66,7 +66,7 @@ All backends implement `Renderer.Backend` (`resize`, `render`, `waitIdle`,
 
 - **Headless** (`Renderer.Headless`, in the core lib): counts
   `submitted_frames` / `submitted_items`, does no GPU work. Used by the
-  sandbox example and backend-interface tests.
+  backend-interface tests.
 - **WGPU sprite backend** (`src/gfx/wgpu/backend.zig`, module
   `wgpu_backend`): nearest-filtered, alpha-blended quads. Created with
   `SpriteBackend.init(allocator, graphics, assets)` which builds the WGSL

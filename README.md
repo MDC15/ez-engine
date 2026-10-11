@@ -38,7 +38,6 @@ Chạy từ thư mục repository:
 ```sh
 zig build             # Build thư viện tĩnh ez_engine
 zig build test        # Chạy toàn bộ unit tests
-zig build example     # Ví dụ headless (ECS + texture, không cần GPU)
 zig build wgpu-clear  # Build sample sprite WGPU (cần Linux x86_64)
 zig build wgpu-clear-run  # Chạy sample, cần WSLg
 zig build docs        # Xuất API docs ra zig-out/docs
@@ -258,14 +257,13 @@ src/
   asset/              # Manager (cache handle), texture_loader (PNG + ZTEX)
   audio/              # WAV decoder + software mixer (chưa có audio device)
   input/              # Key/MouseButton/Input + InputMap, không phụ thuộc OS
-  physics/            # Collision2D: overlap AABB + event (chưa có vật lý)
+  physics/            # Collision2D (AABB + layer/mask) + Physics2D (velocity/gravity)
   platform/           # GLFW window adapter
   scene/              # Scene document: save/load JSON (ez_engine.Scene)
   script/             # Script behaviors (onStart/onUpdate) + Mover2D
   app/                # App helper (module riêng ez_app, chỉ Linux x86_64)
 template/game/        # Project chuẩn cho `zig build new` (starter App + Script)
 examples/
-  sandbox/            # Headless minimal (không cần GPU)
   wgpu_clear/         # Sample game WGPU (~160 dòng gameplay)
 tests/                # Test tích hợp (ECS, query, math, render_world, backend, script, mover, input)
 tools/                # scaffold.zig: `zig build new` generator

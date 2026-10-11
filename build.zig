@@ -62,20 +62,6 @@ pub fn build(b: *std.Build) void {
     }) });
     test_step.dependOn(&b.addRunArtifact(editor_scene_tests).step);
 
-    const example_module = b.createModule(.{
-        .root_source_file = b.path("examples/sandbox/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    example_module.addImport("ez_engine", game);
-    const example = b.addExecutable(.{
-        .name = "sandbox",
-        .root_module = example_module,
-        .use_llvm = true,
-    });
-    const example_step = b.step("example", "Run the headless sandbox example");
-    example_step.dependOn(&b.addRunArtifact(example).step);
-
     const install_docs = b.addInstallDirectory(.{
         .source_dir = library.getEmittedDocs(),
         .install_dir = .prefix,
