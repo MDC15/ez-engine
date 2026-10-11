@@ -7,7 +7,12 @@ test "mover2d moves bound entity and rejects unbound" {
     const entity = try game.world.create();
     try game.world.add(entity, ez_engine.RenderComponents.Transform{});
     var mover = ez_engine.Script.Mover2D{ .entity = entity };
-    var ctx = ez_engine.Script.Ctx{ .world = &game.world, .game = &game, .dt = 1.0 / 60.0 };
+    var ctx = ez_engine.Script.Ctx{
+        .world = &game.world,
+        .game = &game,
+        .dt = 1.0 / 60.0,
+        .frame_allocator = game.frameAllocator(),
+    };
     game.input.setKey(.d, true);
     const dir = try mover.update(&ctx);
     try std.testing.expectEqual(@as(f32, 1), dir.x);

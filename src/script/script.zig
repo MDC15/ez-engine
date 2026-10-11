@@ -18,6 +18,8 @@ pub const Script = struct {
         world: *World,
         game: *Game,
         dt: f32,
+        /// Temporary, frame-scoped allocator: freed at the end of the frame.
+        frame_allocator: std.mem.Allocator,
     };
 
     game: *Game,
@@ -83,7 +85,12 @@ pub const Script = struct {
 
     fn systemFn(context: ?*anyopaque, world: *World, dt: f32) anyerror!void {
         const self: *Script = @ptrCast(@alignCast(context.?));
-        var ctx = Ctx{ .world = world, .game = self.game, .dt = dt };
+        var ctx = Ctx{
+            .world = world,
+            .game = self.game,
+            .dt = dt,
+            .frame_allocator = self.game.frameAllocator(),
+        };
         if (self.game.update_count == 0) {
             if (self.start_fn) |start| try start(self.ptr, &ctx);
         }

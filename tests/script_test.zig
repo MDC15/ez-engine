@@ -83,3 +83,23 @@ test "onStart runs on the first update even when the loop starts paused" {
     try std.testing.expectEqual(@as(u32, 1), counter.starts);
     try std.testing.expectEqual(@as(u32, 1), counter.updates);
 }
+
+test "script context exposes a reusable frame allocator" {
+    var game = try ez_engine.Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+
+    const Allocator = struct {
+        bytes: usize = 0,
+        pub fn onUpdate(self: *@This(), ctx: *ez_engine.Script.Ctx) !void {
+            const buffer = try ctx.frame_allocator.alloc(u8, 64);
+            self.bytes += buffer.len;
+        }
+    };
+    var behavior = Allocator{};
+    var script = ez_engine.Script.init(&game, &behavior);
+    try script.register(&game.scheduler, "Allocator");
+
+    try game.frame(1.0 / 60.0);
+    try game.frame(1.0 / 60.0);
+    try std.testing.expectEqual(@as(usize, 128), behavior.bytes);
+}
