@@ -27,7 +27,8 @@ pub const Script = struct {
     update_fn: *const fn (*anyopaque, *Ctx) anyerror!void,
     start_fn: ?*const fn (*anyopaque, *Ctx) anyerror!void,
 
-    /// Wraps any struct with `onUpdate(*T, *Ctx) (!void|void)`.
+    /// Wraps any struct with `onUpdate(*T, *Ctx)` or `onUpdate(*T, *Game, f32)`
+    /// (either may return `void` or `!void`).
     /// Missing `onUpdate` is a compile error at the call site.
     /// A defined `onStart` is silently ignored here — use `initWithStart`.
     pub fn init(game: *Game, behavior: anytype) Script {
@@ -40,7 +41,8 @@ pub const Script = struct {
         };
     }
 
-    /// Like `init`, but also wires `onStart(*T, *Ctx) (!void|void)`.
+    /// Like `init`, but also wires `onStart(*T, *Ctx)` or `onStart(*T, *Game)`
+    /// (either may return `void` or `!void`).
     /// `onStart` runs on the first executed frame, so register before the
     /// first `Game.frame` to get it. Two constructors exist because Zig
     /// cannot probe for an optional method across the behavior/lib
@@ -67,18 +69,18 @@ pub const Script = struct {
         entity: ?Entity = null,
         speed: f32 = 260,
 
-        pub fn update(self: *Mover2D, ctx: *Ctx) !Vec2 {
+        pub fn update(self: *Mover2D, game: *Game, dt: f32) !Vec2 {
             const entity = self.entity orelse return error.UnboundEntity;
             var direction = Vec2.zero;
-            const input = &ctx.game.input;
+            const input = &game.input;
             if (input.isDown(.a) or input.isDown(.left)) direction.x -= 1;
             if (input.isDown(.d) or input.isDown(.right)) direction.x += 1;
             if (input.isDown(.s) or input.isDown(.down)) direction.y -= 1;
             if (input.isDown(.w) or input.isDown(.up)) direction.y += 1;
             if (direction.x != 0 and direction.y != 0) direction = Vec2.scale(direction, 0.70710678);
-            const transform = try ctx.world.get(entity, Components.Transform);
-            transform.position.x += direction.x * self.speed * ctx.dt;
-            transform.position.y += direction.y * self.speed * ctx.dt;
+            const transform = try game.world.get(entity, Components.Transform);
+            transform.position.x += direction.x * self.speed * dt;
+            transform.position.y += direction.y * self.speed * dt;
             return direction;
         }
     };
@@ -101,11 +103,14 @@ pub const Script = struct {
         return struct {
             fn f(ptr: *anyopaque, ctx: *Ctx) anyerror!void {
                 const self: *T = @ptrCast(@alignCast(ptr));
-                const R = @typeInfo(@TypeOf(T.onUpdate)).@"fn".return_type orelse void;
-                if (R == void) {
-                    self.onUpdate(ctx);
+                const Fn = @TypeOf(T.onUpdate);
+                const R = @typeInfo(Fn).@"fn".return_type orelse void;
+                const params = @typeInfo(Fn).@"fn".params;
+                const wants_game = params.len >= 2 and params[1].type.? == *Game;
+                if (wants_game) {
+                    if (R == void) self.onUpdate(ctx.game, ctx.dt) else try self.onUpdate(ctx.game, ctx.dt);
                 } else {
-                    try self.onUpdate(ctx);
+                    if (R == void) self.onUpdate(ctx) else try self.onUpdate(ctx);
                 }
             }
         }.f;
@@ -115,11 +120,14 @@ pub const Script = struct {
         return struct {
             fn f(ptr: *anyopaque, ctx: *Ctx) anyerror!void {
                 const self: *T = @ptrCast(@alignCast(ptr));
-                const R = @typeInfo(@TypeOf(T.onStart)).@"fn".return_type orelse void;
-                if (R == void) {
-                    self.onStart(ctx);
+                const Fn = @TypeOf(T.onStart);
+                const R = @typeInfo(Fn).@"fn".return_type orelse void;
+                const params = @typeInfo(Fn).@"fn".params;
+                const wants_game = params.len >= 2 and params[1].type.? == *Game;
+                if (wants_game) {
+                    if (R == void) self.onStart(ctx.game) else try self.onStart(ctx.game);
                 } else {
-                    try self.onStart(ctx);
+                    if (R == void) self.onStart(ctx) else try self.onStart(ctx);
                 }
             }
         }.f;

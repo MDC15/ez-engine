@@ -103,3 +103,52 @@ test "script context exposes a reusable frame allocator" {
     try game.frame(1.0 / 60.0);
     try std.testing.expectEqual(@as(usize, 128), behavior.bytes);
 }
+
+const Modern = struct {
+    starts: u32 = 0,
+    updates: u32 = 0,
+    saw_world: bool = false,
+
+    pub fn onStart(self: *Modern, game: *ez_engine.Game) !void {
+        _ = game;
+        self.starts += 1;
+    }
+
+    pub fn onUpdate(self: *Modern, game: *ez_engine.Game, dt: f32) !void {
+        _ = dt;
+        self.updates += 1;
+        self.saw_world = game.world.aliveCount() >= 0;
+    }
+};
+
+test "ctx-free behavior receives game and dt" {
+    var game = try ez_engine.Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    var behavior = Modern{};
+    var script = ez_engine.Script.initWithStart(&game, &behavior);
+    try script.register(&game.scheduler, "Modern");
+    try game.frame(1.0 / 60.0);
+    try game.frame(1.0 / 60.0);
+    try std.testing.expectEqual(@as(u32, 1), behavior.starts);
+    try std.testing.expectEqual(@as(u32, 2), behavior.updates);
+    try std.testing.expect(behavior.saw_world);
+}
+
+const ModernVoid = struct {
+    updates: u32 = 0,
+    pub fn onUpdate(self: *ModernVoid, game: *ez_engine.Game, dt: f32) void {
+        _ = game;
+        _ = dt;
+        self.updates += 1;
+    }
+};
+
+test "ctx-free behavior may return void" {
+    var game = try ez_engine.Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    var behavior = ModernVoid{};
+    var script = ez_engine.Script.init(&game, &behavior);
+    try script.register(&game.scheduler, "ModernVoid");
+    try game.frame(1.0 / 60.0);
+    try std.testing.expectEqual(@as(u32, 1), behavior.updates);
+}

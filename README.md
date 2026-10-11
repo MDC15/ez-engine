@@ -101,15 +101,16 @@ xem [docs/project-management.md](docs/project-management.md).
 ## Viết gameplay bằng Script
 
 Behavior là struct thường có `pub fn onUpdate` (và `pub fn onStart` nếu cần
-khởi tạo), đăng ký một dòng thay cho system viết tay:
+khởi tạo), đăng ký một dòng thay cho system viết tay. Viết `onUpdate(self,
+game, dt)` để không phải chạm `Ctx`; dạng cũ `onUpdate(self, ctx)` vẫn chạy:
 
 ```zig
 const Player = struct {
     mover: game.Script.Mover2D = .{},
 
-    pub fn onUpdate(self: *Player, ctx: *game.Script.Ctx) !void {
-        const direction = try self.mover.update(ctx); // WASD + arrows
-        const animation = try ctx.world.get(self.mover.entity.?, game.RenderComponents.SpriteAnimation);
+    pub fn onUpdate(self: *Player, game: *game.Game, dt: f32) !void {
+        const direction = try self.mover.update(game, dt); // WASD + arrows
+        const animation = try game.world.get(self.mover.entity.?, game.RenderComponents.SpriteAnimation);
         animation.play(if (direction.x == 0 and direction.y == 0) idle else walk);
     }
 };
@@ -122,7 +123,8 @@ try script.register(&game.scheduler, "Player movement");
 
 Dùng `Script.initWithStart` khi behavior có `onStart` (chạy ở frame đầu
 tiên). `Mover2D` built-in đẩy `Transform` theo WASD/arrows với tốc độ
-mặc định 260 đơn vị/giây. Chi tiết API xem [docs/api.md](docs/api.md).
+mặc định 260 đơn vị/giây qua `mover.update(game, dt)`. Chi tiết API xem
+[docs/api.md](docs/api.md).
 
 ## Input
 
