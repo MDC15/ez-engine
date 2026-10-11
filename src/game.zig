@@ -2,6 +2,7 @@ const std = @import("std");
 const World = @import("ecs/world.zig").World;
 const Scheduler = @import("ecs/scheduler.zig").Scheduler;
 const Input = @import("ez_input").Input;
+const InputMap = @import("ez_input").InputMap;
 const Audio = @import("audio/audio.zig").Audio;
 const RenderWorld = @import("gfx/render_world.zig").RenderWorld;
 const Backend = @import("gfx/renderer.zig").Backend;
@@ -23,6 +24,7 @@ pub const Game = struct {
     logger: Logger = .{},
     debug: DebugMonitor = .{},
     input: Input = .{},
+    input_map: InputMap,
     audio: Audio,
     render_world: RenderWorld,
     camera_2d: Camera2D = .{},
@@ -40,6 +42,7 @@ pub const Game = struct {
             .assets = AssetManager.init(allocator),
             .audio = try Audio.init(allocator, audio_channels),
             .render_world = RenderWorld.init(allocator),
+            .input_map = InputMap.init(allocator),
         };
     }
 
@@ -57,6 +60,7 @@ pub const Game = struct {
             renderer.deinit();
             self.renderer = null;
         }
+        self.input_map.deinit();
         self.audio.deinit();
         self.assets.deinit();
         self.render_world.deinit();
@@ -160,6 +164,14 @@ test "game frame extracts 2d sprite components" {
     try std.testing.expectEqual(@as(u32, 4), item.texture.index);
     try std.testing.expectEqual(@as(f32, 32), item.sprite_size.x);
     try std.testing.expectEqual(@as(i32, 7), item.z_index);
+}
+
+test "game exposes a bindable input map" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    try game.input_map.bind("jump", .{ .key = .space });
+    game.input.setKey(.space, true);
+    try std.testing.expect(game.input_map.justPressed(&game.input, "jump"));
 }
 
 test "game shutdown waits for and deinitializes its renderer" {

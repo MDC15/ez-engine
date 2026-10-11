@@ -124,6 +124,32 @@ Dùng `Script.initWithStart` khi behavior có `onStart` (chạy ở frame đầu
 tiên). `Mover2D` built-in đẩy `Transform` theo WASD/arrows với tốc độ
 mặc định 260 đơn vị/giây. Chi tiết API xem [docs/api.md](docs/api.md).
 
+## Input
+
+`game.input` giữ trạng thái input theo frame; lớp GLFW đổ sự kiện vào đó.
+Tra phím bằng tên (enum `Key` phủ đủ bộ mã GLFW), hoặc qua hành động có tên
+trong `game.input_map`:
+
+```zig
+// Theo phím trực tiếp.
+if (game.input.justPressed(.space)) jump();
+if (game.input.isDown(.left_shift)) sprint();
+const dx = game.input.mouse_delta_x;
+
+// Theo hành động / trục có tên.
+try game.input_map.bind("jump", .{ .key = .space });
+try game.input_map.bind("jump", .{ .key = .w });
+try game.input_map.bind("move_left", .{ .key = .a });
+try game.input_map.bind("move_right", .{ .key = .d });
+
+if (game.input_map.justPressed(&game.input, "jump")) jump();
+const move = game.input_map.axis(&game.input, "move_left", "move_right"); // -1..1
+```
+
+`bind` nhận `ez_engine.InputBinding` (`key`, `key_code` hoặc `mouse`) và copy
+tên hành động, nên đổi phím chỉ sửa bảng bind — không đụng gameplay.
+`justPressed`/`justReleased` chỉ đúng ở frame có cạnh lên/xuống.
+
 ## Sample WGPU
 
 Sample nằm ở `examples/wgpu_clear` (gameplay thuần túy; backend render nằm
@@ -177,7 +203,7 @@ src/
   gfx/wgpu/           # SpriteBackend (module riêng, chỉ Linux x86_64)
   asset/              # Manager (cache handle), texture_loader (PNG + ZTEX)
   audio/              # WAV decoder + software mixer (chưa có audio device)
-  input/              # Key/MouseButton/Input, không phụ thuộc OS
+  input/              # Key/MouseButton/Input + InputMap, không phụ thuộc OS
   physics/            # Collision2D: overlap AABB + event (chưa có vật lý)
   platform/           # GLFW window adapter
   scene/              # Scene document: save/load JSON (ez_engine.Scene)
@@ -187,7 +213,7 @@ template/game/        # Project chuẩn cho `zig build new` (starter App + Scrip
 examples/
   sandbox/            # Headless minimal (không cần GPU)
   wgpu_clear/         # Sample game WGPU (~160 dòng gameplay)
-tests/                # Test tích hợp (ECS, query, math, render_world, backend, script, mover)
+tests/                # Test tích hợp (ECS, query, math, render_world, backend, script, mover, input)
 tools/                # scaffold.zig: `zig build new` generator
 ```
 
@@ -200,7 +226,8 @@ tools/                # scaffold.zig: `zig build new` generator
   chưa có mô phỏng vật lý (lực, ma sát, CCD).
 - Asset texture: PNG (qua zigimg) và ZTEX nội bộ RGBA8/BGRA8; chưa có JPEG.
 - ECS archetype-based, scheduler tuần tự có kiểm tra dependency cycle, input
-  state, WAV decoder + mixer phần mềm (chưa có audio device).
+  state, action/axis mapping có tên (`InputMap`), WAV decoder + mixer phần
+  mềm (chưa có audio device).
 - GLFW adapter dùng `Game.run`: phím, chuột, scroll, đóng cửa sổ, resize.
 - Logger level/category và debug stats (frame, FPS, entity, culling, batch).
 - Scene document: object sprite/obstacle/pickup, lưu/mở JSON version 1.

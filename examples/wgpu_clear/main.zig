@@ -10,7 +10,7 @@ const Player = struct {
     mover: game_lib.Script.Mover2D = .{},
 
     pub fn onUpdate(self: *Player, ctx: *game_lib.Script.Ctx) !void {
-        if (ctx.game.input.key(.escape).down) ctx.game.running = false;
+        if (ctx.game.input.isDown(.escape)) ctx.game.running = false;
         const direction = try self.mover.update(ctx);
         const animation = try ctx.world.get(self.mover.entity.?, Animation);
         animation.play(if (direction.x == 0 and direction.y == 0) idle_clip else walk_clip);
@@ -56,8 +56,7 @@ const DebugReporter = struct {
 
     fn update(context: ?*anyopaque, _: *game_lib.World, dt: f32) anyerror!void {
         const self: *DebugReporter = @ptrCast(@alignCast(context.?));
-        const toggle = self.game.input.keyCode(292) catch return; // F3
-        if (toggle.pressed) {
+        if (self.game.input.justPressed(.f3)) {
             self.game.debug.enabled = !self.game.debug.enabled;
             self.elapsed_seconds = 0;
             self.game.logger.writeCategory(

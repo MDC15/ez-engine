@@ -11,7 +11,7 @@ pub const Player = struct {
     mover: ez_engine.Script.Mover2D = .{},
 
     pub fn onUpdate(self: *Player, ctx: *ez_engine.Script.Ctx) !void {
-        if (ctx.game.input.key(.escape).down) ctx.game.running = false;
+        if (ctx.game.input.isDown(.escape)) ctx.game.running = false;
         const direction = try self.mover.update(ctx);
         const animation = try ctx.world.get(self.mover.entity.?, Animation);
         animation.play(if (direction.x == 0 and direction.y == 0) idle_clip else walk_clip);

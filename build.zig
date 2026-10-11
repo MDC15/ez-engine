@@ -43,7 +43,9 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     const library_tests = b.addTest(.{ .root_module = game, .use_llvm = true });
     test_step.dependOn(&b.addRunArtifact(library_tests).step);
-    inline for (.{ "ecs_test.zig", "query_test.zig", "math_test.zig", "render_world_sprite_test.zig", "backend_iface_test.zig", "script_test.zig", "mover_test.zig" }) |file| {
+    const input_tests = b.addTest(.{ .root_module = input, .use_llvm = true });
+    test_step.dependOn(&b.addRunArtifact(input_tests).step);
+    inline for (.{ "ecs_test.zig", "query_test.zig", "math_test.zig", "render_world_sprite_test.zig", "backend_iface_test.zig", "script_test.zig", "mover_test.zig", "input_test.zig" }) |file| {
         const test_module = b.createModule(.{
             .root_source_file = b.path(b.fmt("tests/{s}", .{file})),
             .target = target,

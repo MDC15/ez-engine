@@ -69,10 +69,10 @@ pub const Script = struct {
             const entity = self.entity orelse return error.UnboundEntity;
             var direction = Vec2.zero;
             const input = &ctx.game.input;
-            if (input.key(.a).down or input.key(.left).down) direction.x -= 1;
-            if (input.key(.d).down or input.key(.right).down) direction.x += 1;
-            if (input.key(.s).down or input.key(.down).down) direction.y -= 1;
-            if (input.key(.w).down or input.key(.up).down) direction.y += 1;
+            if (input.isDown(.a) or input.isDown(.left)) direction.x -= 1;
+            if (input.isDown(.d) or input.isDown(.right)) direction.x += 1;
+            if (input.isDown(.s) or input.isDown(.down)) direction.y -= 1;
+            if (input.isDown(.w) or input.isDown(.up)) direction.y += 1;
             if (direction.x != 0 and direction.y != 0) direction = Vec2.scale(direction, 0.70710678);
             const transform = try ctx.world.get(entity, Components.Transform);
             transform.position.x += direction.x * self.speed * ctx.dt;

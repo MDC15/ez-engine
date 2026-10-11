@@ -67,9 +67,14 @@ details; consumers only import `ez_engine`.
 
 ## Input, platform, scene
 
-- `Input`: `key/keyCode`, `mouseButton`, `moveMouse`, `addScroll`;
-  per-frame edges via `beginFrame()` (`pressed`/`released` live one frame).
+- `Input`: `key/keyCode`, `isDown/justPressed/justReleased(key)`, `mouseButton`,
+  `moveMouse`, `addScroll`; per-frame edges via `beginFrame()`
+  (`pressed`/`released` live one frame). `Key` names the GLFW key set;
   `Key` / `MouseButton` enums exported at root.
+- `InputMap` (root export): `init(allocator)`, `bind(action, InputBinding)`,
+  `isDown/justPressed/justReleased(input, action)`, `axis(input, negative,
+  positive)`. `InputBinding` is `.key`, `.key_code` or `.mouse`. `Game.input_map`
+  is a ready, empty map; `Game.deinit` frees it.
 - `Platform.Window` vtable (`pollEvents`, `framebuffer_extent`,
   `requestClose`, `shouldClose`) and `Platform.Event`; GLFW adapter at
   `src/platform/glfw_window.zig` (`WindowAdapter.init(w, h, title)`).

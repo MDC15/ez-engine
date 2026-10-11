@@ -11,6 +11,11 @@
 - `ez new <name>` command (`./ez` script) wrapping `zig build new` with a
   standard project template (starter uses App + Script); the Python project
   tool is gone.
+- Input ergonomics: `Key` now names the full GLFW key set (letters, digits,
+  function keys, navigation, modifiers, keypad, punctuation) and `Input`
+  gains `isDown` / `justPressed` / `justReleased`. New `InputMap` (root
+  export) binds named actions and axes to keys, mouse buttons or raw codes;
+  `Game.input_map` is a ready, empty map freed on `deinit`.
 
 ### Removed
 
@@ -52,6 +57,11 @@
 - `Game` no longer carries the unused 3D `camera` field (kept `camera_2d`).
 - Non-Linux/x86_64 builds now log a warning instead of silently skipping
   the desktop samples.
+- `Input`'s inline tests now run under `zig build test`: the `ez_input`
+  module gets its own test step, so its tests (and `InputMap`'s) are
+  collected instead of silently skipped at the module boundary.
+- `Mover2D` reads keys through the new `Input.isDown` helper (behavior
+  unchanged).
 
 ### Added
 
