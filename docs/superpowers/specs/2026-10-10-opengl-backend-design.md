@@ -141,13 +141,15 @@ Exactly mirrors `src/gfx/wgpu/backend.zig`:
   pixels.ptr)` with `format = GL_RGBA` for `rgba8` and `GL_BGRA` for `bgra8`.
 - Filtering `GL_NEAREST`/`GL_NEAREST`; `glTexParameteri` wrap `CLAMP_TO_EDGE`.
 - **Orientation (verified during implementation):** the WGPU backend treats
-  texture v = 0 as the top of the image (top-left UV origin). GL treats the
-  first uploaded row as v = 0 (bottom). To reuse the identical
-  `appendSpriteVertices` UV math, **upload rows vertically flipped**
-  (first uploaded row = last image row). If the sprite comes out flipped
-  anyway, invert v in the shader — the visual check with
-  `assets/player_sheet.png` is authoritative; which mechanism is chosen is the
-  builder's call, but a flipped sprite is an explicit release-blocker bug.
+  texture v = 0 as the top of the image (top-left UV origin), and its
+  `appendSpriteVertices` maps the quad's top to the *low* uv.y. Upload rows
+  in their natural order (first uploaded row = first image row) and reuse the
+  uv math unchanged; with GL's "first row in memory is v = 0" convention this
+  renders the same orientation as WGPU. The visual check with
+  `assets/player_sheet.png` is authoritative: if the sprite comes out
+  vertically inverted anyway, flip rows at upload (or invert v in the
+  shader). Which mechanism is chosen is the builder's call, but a flipped
+  sprite is an explicit release-blocker bug.
 
 ### D3 — GL function loading: `@cImport` + system `GL`
 
