@@ -171,8 +171,8 @@ một present).
 Cuối mỗi frame, rác được dọn tự động:
 
 ```zig
-try game.destroyDeferred(entity);       // hủy ở ranh giới frame (an toàn khi đang query)
-const tmp = try game.frameAllocator();  // cấp phát tạm, tự thu hồi cuối frame
+try game.destroyDeferred(entity);      // hủy ở ranh giới frame (an toàn khi đang query)
+const tmp = try game.frameAllocator().alloc(u8, 128); // cấp tạm, tự thu hồi cuối frame
 ```
 
 Trong behavior, dùng `ctx.frame_allocator` cho dữ liệu chỉ sống trong frame.

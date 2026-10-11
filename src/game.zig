@@ -36,6 +36,7 @@ pub const Game = struct {
     renderer: ?Backend = null,
     frame_index: u64 = 0,
     update_count: u64 = 0,
+    input_consumed: bool = true,
     running: bool = false,
     framebuffer_extent: Platform.Extent2D = .{ .width = 0, .height = 0 },
     rendered_extent: Platform.Extent2D = .{ .width = 0, .height = 0 },
@@ -77,7 +78,11 @@ pub const Game = struct {
     }
 
     pub fn beginFrame(self: *Game) void {
-        self.input.beginFrame();
+        // Edges and mouse deltas are cleared by the simulation step that
+        // consumes them (see `tick`/`frame`). If the previous rendered frame
+        // ran zero steps, keep them so a press on a starved frame survives
+        // until a step actually observes it.
+        if (self.input_consumed) self.input.beginFrame();
     }
 
     pub fn update(self: *Game, dt: f32) !void {
@@ -122,6 +127,8 @@ pub const Game = struct {
 
     pub fn frame(self: *Game, dt: f32) !void {
         try self.update(dt);
+        self.input.clearEdges();
+        self.input_consumed = true;
         try self.present(dt);
     }
 
@@ -134,6 +141,7 @@ pub const Game = struct {
             try self.update(step_dt);
             if (index == 0) self.input.clearEdges();
         }
+        self.input_consumed = steps > 0;
         try self.present(@floatCast(self.loop.clampFrameSeconds(frame_seconds)));
     }
 
@@ -310,6 +318,36 @@ test "fixed loop consumes an input edge once per frame" {
     _ = try game.scheduler.addSystem("Probe", &probe, Probe.run);
 
     try game.tick(0.25);
+    try std.testing.expectEqual(@as(u32, 1), presses);
+}
+
+test "input edge survives a rendered frame that runs zero fixed steps" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop = try GameLoop.initFixed(0.1, 8);
+
+    var presses: u32 = 0;
+    const Probe = struct {
+        game: *Game,
+        presses: *u32,
+        fn run(context: ?*anyopaque, _: *World, _: f32) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context.?));
+            if (self.game.input.justPressed(.space)) self.presses.* += 1;
+        }
+    };
+    var probe = Probe{ .game = &game, .presses = &presses };
+    _ = try game.scheduler.addSystem("Probe", &probe, Probe.run);
+
+    // Rendered frame 1: a press arrives, but the accumulator yields no step.
+    game.beginFrame();
+    game.input.setKey(.space, true);
+    try game.tick(0.05);
+    try std.testing.expectEqual(@as(u32, 0), presses);
+
+    // Rendered frame 2: the key is still held (no fresh event) and a step runs.
+    game.beginFrame();
+    try game.tick(0.05);
+
     try std.testing.expectEqual(@as(u32, 1), presses);
 }
 
