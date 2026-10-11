@@ -8,12 +8,22 @@ details; consumers only import `ez_engine`.
 
 - `Game.init(allocator, audio_channels) !Game` — builds world, scheduler,
   assets, audio mixer and render world.
-- `Game.frame(dt: f32) !void` — `dt` must be finite and `>= 0`
-  (`error.InvalidDeltaTime`); runs systems, extracts/culls/sorts sprites,
-  renders, captures debug stats.
-- `Game.run(io: std.Io, window: Platform.Window) !void` — clock loop with
-  `dt` clamped to 0.25s; feed input via `beginFrame()` + platform events.
+- `Game.frame(dt: f32) !void` — one update + one present; `dt` must be finite
+  and `>= 0` (`error.InvalidDeltaTime`).
+- `Game.update(dt: f32) !void` / `Game.present(frame_seconds: f32) !void` —
+  the two halves of `frame`: run systems, then extract/cull/sort/render,
+  capture debug stats and reclaim.
+- `Game.tick(frame_seconds: f64) !void` — drives `GameLoop`: runs 0..N
+  simulation steps then one present; frame time is clamped to
+  `loop.max_frame_seconds`. A `stopped` loop skips both.
+- `Game.run(io: std.Io, window: Platform.Window) !void` — clock loop feeding
+  `tick`; feed input via `beginFrame()` + platform events.
 - `Game.deinit()` — `waitIdle`, destroys backend, then frees subsystems.
+- `game.loop: GameLoop` — timing controller: `time_scale` (0 or negative
+  freezes), `pause`/`unpause`/`stop`, `GameLoop.initFixed(step_seconds,
+  max_steps)`; default is `variable` (one step per frame).
+- `Game.destroyDeferred(entity) !void` and `Game.frameAllocator() Allocator` —
+  end-of-frame destroy queue and temp allocator; backed by `game.reclaimer`.
 - `game.renderer: ?Renderer.Backend`, `game.camera_2d: Camera2D`,
   `game.debug: Debug.Monitor`, `game.logger: Logging.Logger`,
   `game.input: Input`, `game.assets: Assets`, `game.world: World`.
@@ -24,6 +34,10 @@ details; consumers only import `ez_engine`.
   `add(entity, value: anytype)`, `remove(T)`, `get(T) !*T`, `has(T)`,
   `query(spec)`, `aliveCount()`. Components must be plain data (copied on
   archetype migration — no owning pointers).
+- `World.destroyDeferred(entity) !void` queues a destroy for a safe boundary;
+  `World.flushDeferred()` destroys the queue (already-dead entities are
+  dropped, `OutOfMemory` keeps the entry for a retry);
+  `World.pendingDestroyCount()`. `destroy` stays immediate.
 - `Entity{ id, generation }` (generational: stale handles fail `isAlive`).
 - `Scheduler`: `addSystem(name, ctx, UpdateFn) !SystemId`,
   `dependsOn(before, after)`, `run(world, dt)` in topological order,
@@ -69,8 +83,9 @@ details; consumers only import `ez_engine`.
 
 - `Input`: `key/keyCode`, `isDown/justPressed/justReleased(key)`, `mouseButton`,
   `moveMouse`, `addScroll`; per-frame edges via `beginFrame()`
-  (`pressed`/`released` live one frame). `Key` names the GLFW key set;
-  `Key` / `MouseButton` enums exported at root.
+  (`pressed`/`released` live one frame). `clearEdges()` drops the edges but
+  keeps held state (used after the first fixed step). `Key` names the GLFW key
+  set; `Key` / `MouseButton` enums exported at root.
 - `InputMap` (root export): `init(allocator)`, `bind(action, InputBinding)`,
   `isDown/justPressed/justReleased(input, action)`, `axis(input, negative,
   positive)`. `InputBinding` is `.key`, `.key_code` or `.mouse`. `Game.input_map`
@@ -85,14 +100,15 @@ details; consumers only import `ez_engine`.
   structs with `pub onUpdate(*T, *Ctx) (!void|void)` (plus optional `pub
   onStart` via `initWithStart`, runs on the first executed frame — plain
   `init` silently ignores `onStart`);
-  `register(&scheduler, name)`. `Script.Ctx{ world, game, dt }`.
+  `register(&scheduler, name)`. `Script.Ctx{ world, game, dt, frame_allocator }`
+  (`frame_allocator` is freed at the end of the frame).
 - `Script.Mover2D{ entity: ?Entity = null, speed: f32 = 260 }`:
   `update(&ctx) !Vec2` drives `Transform` with WASD + arrows, returns the
   normalized direction; null entity → `error.UnboundEntity`.
 - `Renderer.Backend` vtable + `Renderer.Headless` test backend
   (`submitted_frames`, `submitted_items`).
-- `Scene`, `Logging`, `Debug`, `Time` (Clock/FixedStepper),
-  `AllocatorTools` (FrameArena), `Handles`/`TextureHandle`, math
+- `Scene`, `Logging`, `Debug`, `Time` (Clock/FixedStepper), `GameLoop`,
+  `Reclaimer`, `AllocatorTools` (FrameArena), `Handles`/`TextureHandle`, math
   (`Vec2/3/4`, `Quat`, `Mat4`).
 
 ## Desktop-only module

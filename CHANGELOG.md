@@ -16,6 +16,13 @@
   gains `isDown` / `justPressed` / `justReleased`. New `InputMap` (root
   export) binds named actions and axes to keys, mouse buttons or raw codes;
   `Game.input_map` is a ready, empty map freed on `deinit`.
+- Managed game loop: `GameLoop` (variable/fixed timestep via `FixedStepper`,
+  `time_scale`, pause/`unpause`/stop, frame-time clamp) and `Game.tick`; `Game`
+  gains split `update`/`present` (with `frame(dt)` unchanged).
+- Automatic end-of-frame reclamation: `World.destroyDeferred`/`flushDeferred`,
+  `Reclaimer` + per-frame `FrameArena` (`Game.frameAllocator`,
+  `Script.Ctx.frame_allocator`), and `Input.clearEdges` so edge-triggered
+  actions fire once per rendered frame under fixed timestep.
 
 ### Removed
 

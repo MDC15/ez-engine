@@ -150,6 +150,34 @@ const move = game.input_map.axis(&game.input, "move_left", "move_right"); // -1.
 tên hành động, nên đổi phím chỉ sửa bảng bind — không đụng gameplay.
 `justPressed`/`justReleased` chỉ đúng ở frame có cạnh lên/xuống.
 
+## Game loop & dọn rác
+
+`Game` có sẵn một `GameLoop`: mặc định `variable` (mỗi frame một bước), hoặc
+`fixed` để bước cố định — hợp với mô phỏng cần ổn định:
+
+```zig
+game.loop = try ez_engine.GameLoop.initFixed(1.0 / 60.0, 8); // 60 Hz, tối đa 8 bước/frame
+game.loop.time_scale = 0.5; // slow-motion (0 hoặc âm = đóng băng)
+game.loop.pause();          // vẫn present, không mô phỏng
+game.loop.unpause();
+game.loop.stop();           // vòng `Game.run` dừng hẳn
+```
+
+`Game.tick(frame_seconds)` chạy 0..N bước mô phỏng rồi present một lần;
+frame-time được kẹp ở `loop.max_frame_seconds` (mặc định 0.25s) để tránh
+"spiral of death". `Game.frame(dt)` vẫn giữ nguyên hành vi cũ (một update +
+một present).
+
+Cuối mỗi frame, rác được dọn tự động:
+
+```zig
+try game.destroyDeferred(entity);       // hủy ở ranh giới frame (an toàn khi đang query)
+const tmp = try game.frameAllocator();  // cấp phát tạm, tự thu hồi cuối frame
+```
+
+Trong behavior, dùng `ctx.frame_allocator` cho dữ liệu chỉ sống trong frame.
+`World.destroy` vẫn hủy ngay lập tức khi bạn chắc chắn không đang lặp query.
+
 ## Sample WGPU
 
 Sample nằm ở `examples/wgpu_clear` (gameplay thuần túy; backend render nằm
