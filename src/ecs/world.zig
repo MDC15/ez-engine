@@ -350,4 +350,3 @@ test "destroyDeferred queues until flush and ignores already dead" {
     try std.testing.expect(!world.isAlive(b));
     try std.testing.expectEqual(@as(usize, 0), world.pendingDestroyCount());
 }
-

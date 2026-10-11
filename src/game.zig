@@ -1,5 +1,6 @@
 const std = @import("std");
 const World = @import("ecs/world.zig").World;
+const Entity = @import("ecs/entity.zig").Entity;
 const Scheduler = @import("ecs/scheduler.zig").Scheduler;
 const Input = @import("ez_input").Input;
 const InputMap = @import("ez_input").InputMap;
@@ -7,6 +8,8 @@ const Audio = @import("audio/audio.zig").Audio;
 const RenderWorld = @import("gfx/render_world.zig").RenderWorld;
 const Backend = @import("gfx/renderer.zig").Backend;
 const Clock = @import("core/time.zig").Clock;
+const GameLoop = @import("core/game_loop.zig").GameLoop;
+const Reclaimer = @import("core/reclaimer.zig").Reclaimer;
 const Platform = @import("ez_platform");
 const Camera2D = @import("gfx/camera.zig").Camera2D;
 const AssetManager = @import("asset/manager.zig").Manager;
@@ -28,6 +31,8 @@ pub const Game = struct {
     audio: Audio,
     render_world: RenderWorld,
     camera_2d: Camera2D = .{},
+    loop: GameLoop = .{},
+    reclaimer: Reclaimer,
     renderer: ?Backend = null,
     frame_index: u64 = 0,
     running: bool = false,
@@ -43,6 +48,7 @@ pub const Game = struct {
             .audio = try Audio.init(allocator, audio_channels),
             .render_world = RenderWorld.init(allocator),
             .input_map = InputMap.init(allocator),
+            .reclaimer = Reclaimer.init(allocator),
         };
     }
 
@@ -66,15 +72,19 @@ pub const Game = struct {
         self.render_world.deinit();
         self.scheduler.deinit();
         self.world.deinit();
+        self.reclaimer.deinit();
     }
 
     pub fn beginFrame(self: *Game) void {
         self.input.beginFrame();
     }
 
-    pub fn frame(self: *Game, dt: f32) !void {
+    pub fn update(self: *Game, dt: f32) !void {
         if (!std.math.isFinite(dt) or dt < 0) return error.InvalidDeltaTime;
         try self.scheduler.run(&self.world, dt);
+    }
+
+    pub fn present(self: *Game, frame_seconds: f32) !void {
         try self.render_world.extract(&self.world);
         const extracted_render_items = self.render_world.items.items.len;
         if (self.framebuffer_extent.width > 0 and self.framebuffer_extent.height > 0) {
@@ -100,23 +110,48 @@ pub const Game = struct {
         self.frame_index += 1;
         self.debug.captureFrame(
             self.frame_index,
-            dt,
+            frame_seconds,
             self.world.aliveCount(),
             extracted_render_items,
             &self.render_world,
         );
+        self.reclaimer.collect(&self.world);
+    }
+
+    pub fn frame(self: *Game, dt: f32) !void {
+        try self.update(dt);
+        try self.present(dt);
+    }
+
+    pub fn tick(self: *Game, frame_seconds: f64) !void {
+        if (self.loop.isStopped()) return;
+        const steps = self.loop.stepCount(frame_seconds);
+        var index: u32 = 0;
+        while (index < steps) : (index += 1) {
+            const step_dt: f32 = @floatCast(self.loop.stepSeconds(frame_seconds));
+            try self.update(step_dt);
+            if (index == 0) self.input.clearEdges();
+        }
+        try self.present(@floatCast(self.loop.clampFrameSeconds(frame_seconds)));
+    }
+
+    pub fn destroyDeferred(self: *Game, entity: Entity) !void {
+        try self.world.destroyDeferred(entity);
+    }
+
+    pub fn frameAllocator(self: *Game) std.mem.Allocator {
+        return self.reclaimer.frameAllocator();
     }
 
     pub fn run(self: *Game, io: std.Io, window: Platform.Window) !void {
         var clock = Clock.start(io);
         self.running = true;
         self.framebuffer_extent = window.extent();
-        while (self.running and !window.shouldClose()) {
+        while (self.running and !self.loop.isStopped() and !window.shouldClose()) {
             self.beginFrame();
             try window.pollEvents(onPlatformEvent, self);
             if (!self.running or window.shouldClose()) break;
-            const dt: f32 = @floatCast(@min(clock.tick(io), 0.25));
-            try self.frame(dt);
+            try self.tick(clock.tick(io));
         }
     }
 
@@ -205,4 +240,94 @@ test "game shutdown waits for and deinitializes its renderer" {
     game.deinit();
     try std.testing.expectEqual(@as(u32, 1), state.wait_count);
     try std.testing.expectEqual(@as(u32, 1), state.deinit_count);
+}
+
+test "game tick runs fixed steps and presents once" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop = try GameLoop.initFixed(0.1, 8);
+
+    var updates: u32 = 0;
+    const Counter = struct {
+        fn run(context: ?*anyopaque, _: *World, _: f32) anyerror!void {
+            const count: *u32 = @ptrCast(@alignCast(context.?));
+            count.* += 1;
+        }
+    };
+    _ = try game.scheduler.addSystem("Count", &updates, Counter.run);
+
+    try game.tick(0.25);
+    try std.testing.expectEqual(@as(u32, 2), updates);
+    try std.testing.expectEqual(@as(u64, 1), game.frame_index);
+}
+
+test "paused loop presents without stepping" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop.pause();
+
+    var updates: u32 = 0;
+    const Counter = struct {
+        fn run(context: ?*anyopaque, _: *World, _: f32) anyerror!void {
+            const count: *u32 = @ptrCast(@alignCast(context.?));
+            count.* += 1;
+        }
+    };
+    _ = try game.scheduler.addSystem("Count", &updates, Counter.run);
+
+    try game.tick(0.25);
+    try std.testing.expectEqual(@as(u32, 0), updates);
+    try std.testing.expectEqual(@as(u64, 1), game.frame_index);
+}
+
+test "stopped loop does not present or step" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop.stop();
+    try std.testing.expect(game.loop.isStopped());
+    try game.tick(0.25);
+    try std.testing.expectEqual(@as(u64, 0), game.frame_index);
+}
+
+test "fixed loop consumes an input edge once per frame" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop = try GameLoop.initFixed(0.1, 8);
+    game.input.setKey(.space, true);
+
+    var presses: u32 = 0;
+    const Probe = struct {
+        game: *Game,
+        presses: *u32,
+        fn run(context: ?*anyopaque, _: *World, _: f32) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context.?));
+            if (self.game.input.justPressed(.space)) self.presses.* += 1;
+        }
+    };
+    var probe = Probe{ .game = &game, .presses = &presses };
+    _ = try game.scheduler.addSystem("Probe", &probe, Probe.run);
+
+    try game.tick(0.25);
+    try std.testing.expectEqual(@as(u32, 1), presses);
+}
+
+test "deferred entity is destroyed after a frame" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    const entity = try game.world.create();
+    try game.destroyDeferred(entity);
+    try std.testing.expect(game.world.isAlive(entity));
+    try game.frame(1.0 / 60.0);
+    try std.testing.expect(!game.world.isAlive(entity));
+}
+
+test "frame allocator is reusable across frames" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    const first = try game.frameAllocator().alloc(u8, 256);
+    first[0] = 1;
+    try game.frame(1.0 / 60.0);
+    const second = try game.frameAllocator().alloc(u8, 256);
+    second[0] = 2;
+    try std.testing.expect(game.reclaimer.arenaBytes() > 0);
 }
