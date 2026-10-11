@@ -81,12 +81,12 @@ changes xem `CHANGELOG.md`.
 
 ## Tạo và quản lý project game
 
-Tạo game project mới bằng lệnh `ez` (không cần Python, gọi được từ bất kỳ
-thư mục nào):
+Tạo game project mới bằng `zig build new` (chạy từ thư mục checkout của
+framework, không cần Python):
 
 ```sh
-./ez new MyFirstGame
-./ez new MyFirstGame --workspace ~/Games
+zig build new -Dname=MyFirstGame
+zig build new -Dname=MyFirstGame -Dworkspace="$HOME/Games"
 ```
 
 Mặc định project được tạo trong `projects/`. Lệnh sinh ra cấu trúc chuẩn

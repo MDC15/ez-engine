@@ -8,9 +8,8 @@
   via `initWithStart`, one-line `register`) plus built-in `Mover2D`.
 - Desktop `App` helper (`ez_app` module): window + graphics + game + backend
   in `App.init`, `run`, `deinit`. The WGPU sample is gameplay-only.
-- `ez new <name>` command (`./ez` script) wrapping `zig build new` with a
-  standard project template (starter uses App + Script); the Python project
-  tool is gone.
+- `zig build new -Dname=<name>` scaffolds a standard project template
+  (starter uses App + Script); the Python project tool is gone.
 - Input ergonomics: `Key` now names the full GLFW key set (letters, digits,
   function keys, navigation, modifiers, keypad, punctuation) and `Input`
   gains `isDown` / `justPressed` / `justReleased`. New `InputMap` (root
