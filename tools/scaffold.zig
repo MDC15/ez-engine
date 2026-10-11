@@ -231,5 +231,10 @@ pub fn main(init: std.process.Init) !void {
     patchFingerprint(io, allocator, target) catch |err| {
         std.debug.print("ez-new: warning: fingerprint discovery failed ({}), run `zig build` in {s} to fix\n", .{ err, target });
     };
-    std.debug.print("Created {s}\nNext: cd '{s}' && zig build run\n", .{ target, target });
+    const rel = try relativeTo(allocator, cwd, target);
+    const shown = if (std.mem.startsWith(u8, rel, "..")) target else rel;
+    std.debug.print(
+        "Created {s} in {s}\n\nNext steps:\n  cd '{s}'\n  zig build run\n",
+        .{ slug, shown, shown },
+    );
 }
