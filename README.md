@@ -126,6 +126,30 @@ tiên). `Mover2D` built-in đẩy `Transform` theo WASD/arrows với tốc độ
 mặc định 260 đơn vị/giây qua `mover.update(game, dt)`. Chi tiết API xem
 [docs/api.md](docs/api.md).
 
+## Vật lí & va chạm
+
+`Physics2D` tích phân vận tốc vào `Transform` (trọng lực, giảm tốc, độ nảy);
+`Collision2D` đẩy các vật `solid` ra và dội vận tốc theo `restitution`. Lọc
+va chạm bằng layer/mask: mỗi collider mang một `layer`, và chỉ đụng với layer
+có trong `collides_with` của nó (hai bên phải cùng đồng ý):
+
+```zig
+// Player: layer 1, đụng mọi thứ. Wall: layer 2, chỉ đụng player + wall.
+try world.add(wall, game.Collision2D.Collider2D{
+    .size = .{ .x = 64, .y = 64 },
+    .solid = true,
+    .is_static = true,
+    .layer = 2,
+    .collides_with = game.Collision2D.layerBit(1) | game.Collision2D.layerBit(2),
+});
+
+// Vật rơi: chạy Physics2D.System TRƯỚC Collision2D.System.
+try world.add(box, game.Physics2D.Velocity{});
+try world.add(box, game.Physics2D.RigidBody2D{ .restitution = 0.4 });
+```
+
+Chi tiết trong [docs/api.md](docs/api.md).
+
 ## Input
 
 `game.input` giữ trạng thái input theo frame; lớp GLFW đổ sự kiện vào đó.

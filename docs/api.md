@@ -65,9 +65,29 @@ details; consumers only import `ez_engine`.
 ## Collision
 
 - `Collision2D.Collider2D{ size: Vec2, offset: Vec2, enabled, solid,
-  is_static }`.
+  is_static, layer: u4, collides_with: u16 }` — `layer` tags the collider
+  (like an id); `collides_with` is the mask of layers it reacts to (default:
+  every layer). Two colliders interact only when **both** masks accept the
+  other's layer.
+- `Collision2D.layerBit(index: u4) u16` builds a single-layer mask.
 - `Collision2D.System.init(allocator)`, `setListener(ctx, fn)`,
   `Collision2D.System.updateSystem`; `Event{ kind: begin|stay|end, a, b }`.
+  Solid bodies are separated; a body with `Physics2D.Velocity` also has its
+  normal velocity cancelled (and reflected by `RigidBody2D.restitution`).
+  Kinematic and static bodies are never pushed.
+
+## Physics
+
+- `Physics2D.Velocity{ linear: Vec2 }`.
+- `Physics2D.BodyType = enum { static, kinematic, dynamic }`.
+- `Physics2D.RigidBody2D{ body_type = .dynamic, gravity_scale = 1,
+  linear_damping = 0, restitution = 0 }`.
+- `Physics2D.System{ gravity: Vec2 = {0, -981} }`,
+  `Physics2D.System.updateSystem`; run it **before** `Collision2D` (e.g.
+  `scheduler.dependsOn(physics_id, collision_id)`). Dynamic bodies integrate
+  gravity + damping into `Transform`; kinematic bodies move by velocity
+  without gravity; static bodies are skipped. An entity with `Velocity` and
+  no `RigidBody2D` moves at a constant velocity (no gravity).
 
 ## Assets and audio
 
@@ -97,14 +117,16 @@ details; consumers only import `ez_engine`.
   `get(id) ?*Object`, `save(io, path)`, `load(io, path)`
   (`error.UnsupportedSceneVersion` unless `version == 1`).
 - `Script`: `init(game, &behavior)` / `initWithStart(game, &behavior)` for
-  structs with `pub onUpdate(*T, *Ctx) (!void|void)` (plus optional `pub
-  onStart` via `initWithStart`, runs on the first executed frame — plain
-  `init` silently ignores `onStart`);
-  `register(&scheduler, name)`. `Script.Ctx{ world, game, dt, frame_allocator }`
-  (`frame_allocator` is freed at the end of the frame).
+  structs with `pub onUpdate(*T, *Ctx)` or the ctx-free
+  `pub onUpdate(*T, *Game, f32)` (either may return `void` or `!void`; plus
+  optional `pub onStart(*T, *Ctx)` / `pub onStart(*T, *Game)` via
+  `initWithStart`, runs on the first executed frame — plain `init` silently
+  ignores `onStart`); `register(&scheduler, name)`.
+  `Script.Ctx{ world, game, dt, frame_allocator }` (`frame_allocator` is
+  freed at the end of the frame).
 - `Script.Mover2D{ entity: ?Entity = null, speed: f32 = 260 }`:
-  `update(&ctx) !Vec2` drives `Transform` with WASD + arrows, returns the
-  normalized direction; null entity → `error.UnboundEntity`.
+  `update(game: *Game, dt: f32) !Vec2` drives `Transform` with WASD + arrows,
+  returns the normalized direction; null entity → `error.UnboundEntity`.
 - `Renderer.Backend` vtable + `Renderer.Headless` test backend
   (`submitted_frames`, `submitted_items`).
 - `Scene`, `Logging`, `Debug`, `Time` (Clock/FixedStepper), `GameLoop`,

@@ -38,11 +38,13 @@ zig build run
 On WSL, WSLg must be available for the WGPU window. The starter is
 organized like Unity: `Scenes/editor_scene.json` holds every object's
 position and size, `src/main.zig` only bootstraps (window → load scene →
-spawn entities → attach scripts → run), and each behavior lives in its
+spawn entities → wire systems → run), and each behavior lives in its
 own file under `src/scripts/` (`Player` movement + animation, pickup
-listener, wall collision sample) — all written with the `Script` API
-from `docs/api.md`, so it doubles as the recommended starting point for
-your own behaviors. Edit the scene JSON to change gameplay without
+listener, wall collision sample). Behaviors use the ctx-free
+`onUpdate(self, game, dt)` form, and `main.zig` wires physics + collision +
+camera and turns debug on (fps/entity stats) for you — all written with the
+`Script` API from `docs/api.md`, so it doubles as the recommended starting
+point for your own behaviors. Edit the scene JSON to change gameplay without
 touching code.
 
 A project references this framework checkout by relative path; keep the

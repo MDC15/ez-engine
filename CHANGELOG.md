@@ -23,6 +23,16 @@
   `Reclaimer` + per-frame `FrameArena` (`Game.frameAllocator`,
   `Script.Ctx.frame_allocator`), and `Input.clearEdges` so edge-triggered
   actions fire once per rendered frame under fixed timestep.
+- Collision layers: `Collider2D.layer` / `collides_with` plus
+  `Collision2D.layerBit(index)` say which entities hit which (both sides must
+  agree); defaults keep the old "everything collides" behavior.
+- `Physics2D`: `Velocity`, `RigidBody2D` (dynamic/kinematic/static,
+  `gravity_scale`, `linear_damping`, `restitution`) and an integrator
+  `System`; `Collision2D` now applies restitution and treats kinematic
+  bodies as immovable.
+- Ctx-free behaviors: `onUpdate(self, game, dt)` / `onStart(self, game)`
+  alongside the existing `*Script.Ctx` form; the scaffold template wires
+  physics + collision + camera, turns debug on, and uses the new form.
 
 ### Removed
 
@@ -48,6 +58,9 @@
   → attach scripts → run), behaviors live one-per-file under
   `src/scripts/` (`player.zig`, `pickup.zig`), and object
   positions/sizes come from the scene JSON instead of hardcoded values.
+- Source break: `Script.Mover2D.update` now takes `(game: *Game, dt: f32)`
+  instead of a `*Script.Ctx`. The `Script.Ctx` behavior form still works;
+  migrate `self.mover.update(ctx)` → `self.mover.update(game, dt)`.
 - Renamed the package and module from `game_lib` to `ez_engine`
   (version `0.1.0-dev`, `src/root.zig: version`). Migration:
   `@import("game_lib")` → `@import("ez_engine")`.
