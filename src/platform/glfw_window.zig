@@ -24,13 +24,37 @@ pub const WindowAdapter = struct {
         const native_window = try zglfw.Window.create(@intCast(width), @intCast(height), title, null, null);
         errdefer native_window.destroy();
 
+        installCallbacks(native_window);
+
+        return .{ .native_window = native_window };
+    }
+
+    /// Creates a window with an OpenGL 3.3 core context and makes it current.
+    pub fn initOpenGL(width: u32, height: u32, title: [:0]const u8, resizable: bool) !WindowAdapter {
+        try zglfw.init();
+        errdefer zglfw.terminate();
+
+        zglfw.windowHint(.client_api, .opengl_api);
+        zglfw.windowHint(.context_version_major, 3);
+        zglfw.windowHint(.context_version_minor, 3);
+        zglfw.windowHint(.opengl_profile, .opengl_core_profile);
+        zglfw.windowHint(.opengl_forward_compat, true);
+        zglfw.windowHint(.resizable, resizable);
+        const native_window = try zglfw.Window.create(@intCast(width), @intCast(height), title, null, null);
+        errdefer native_window.destroy();
+
+        installCallbacks(native_window);
+        zglfw.makeContextCurrent(native_window);
+
+        return .{ .native_window = native_window };
+    }
+
+    fn installCallbacks(native_window: *zglfw.Window) void {
         _ = native_window.setKeyCallback(onKey);
         _ = native_window.setMouseButtonCallback(onMouseButton);
         _ = native_window.setCursorPosCallback(onCursorPosition);
         _ = native_window.setScrollCallback(onScroll);
         _ = native_window.setFramebufferSizeCallback(onFramebufferResize);
-
-        return .{ .native_window = native_window };
     }
 
     pub fn deinit(self: *WindowAdapter) void {

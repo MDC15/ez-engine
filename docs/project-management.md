@@ -40,7 +40,15 @@ From the project folder, build and run the starter window with:
 zig build run
 ```
 
-On WSL, WSLg must be available for the WGPU window. The starter is
+On WSL, WSLg must be available for the desktop window. The framework has
+two desktop backends behind one `Backend` vtable: WGPU (Dawn) and OpenGL.
+The samples run on either — `zig build wgpu-run` or `zig build gl-run`. On
+WSL, the WGPU/Dawn path has no hardware Vulkan, so the GL backend is the one
+that reaches the discrete GPU, via Mesa's OpenGL-on-D3D12 driver selected by
+environment only: `GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA`.
+Without those variables GL falls back to the software llvmpipe renderer and
+logs a warning; driver/adapter selection stays an environment concern, never
+hardcoded. The starter is
 organized like Unity: `Scenes/editor_scene.json` holds every object's
 position and size, `src/main.zig` only bootstraps (window → load scene →
 spawn entities → wire systems → run), and each behavior lives in its
