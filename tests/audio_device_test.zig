@@ -18,6 +18,12 @@ test "resample rejects zero target rate" {
     try std.testing.expectError(error.InvalidSampleRate, ez.Audio.resample(std.testing.allocator, clip, 0));
 }
 
+test "resample rejects zero channels" {
+    const source = [_]f32{0};
+    const clip = ez.AudioClip{ .sample_rate = 48000, .channels = 0, .samples = &source };
+    try std.testing.expectError(error.InvalidClip, ez.Audio.resample(std.testing.allocator, clip, 48000));
+}
+
 test "NullDevice drains mixer without error" {
     var audio = try ez.Audio.init(std.testing.allocator, 1);
     defer audio.deinit();

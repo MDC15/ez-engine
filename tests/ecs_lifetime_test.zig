@@ -25,9 +25,12 @@ test "slice component is shallow-copied and destroy frees nothing" {
     const stored = try world.get(entity, Ref);
     try std.testing.expectEqual(backing.len, stored.ptr.len);
     try std.testing.expectEqualStrings(backing, stored.ptr);
-    // Destroy runs no destructor and frees nothing owned; backing stays valid.
+    // Destroy runs no destructor and frees nothing owned: copy the slice
+    // header first (the component row itself is gone after destroy), then
+    // prove the caller's static backing is untouched.
+    const before_destroy: []const u8 = stored.ptr;
     try world.destroy(entity);
-    try std.testing.expectEqualStrings(backing, backing);
+    try std.testing.expectEqualStrings(backing, before_destroy);
 }
 
 test "remove then destroy drops component without destructor" {

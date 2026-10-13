@@ -224,6 +224,8 @@ pub const Audio = struct {
     };
 
     /// Discarding device for tests/headless: runs `mix()` and drops output.
+    /// The returned `Device` borrows `self`; keep the `NullDevice` (and its
+    /// `Audio`) alive while using it.
     pub const NullDevice = struct {
         audio: *Audio,
 
