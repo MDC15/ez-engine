@@ -39,6 +39,7 @@ pub const Logging = @import("core/log.zig");
 pub const Debug = @import("core/debug.zig");
 pub const AllocatorTools = @import("core/allocator.zig");
 pub const Scene = @import("scene/scene.zig");
+pub const SceneSpawn = @import("scene/spawn.zig");
 pub const Script = @import("script/script.zig").Script;
 pub const Texture = @import("gfx/texture.zig").Texture;
 pub const AssetLoading = struct {
@@ -78,6 +79,7 @@ test {
     _ = @import("physics/collision2d.zig");
     _ = @import("physics/physics2d.zig");
     _ = @import("scene/scene.zig");
+    _ = @import("scene/spawn.zig");
     _ = @import("script/script.zig");
     _ = @import("ez_platform");
     _ = @import("gfx/texture.zig");

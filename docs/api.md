@@ -119,6 +119,12 @@ details; consumers only import `ez_engine`.
 - `Scene.Document`: `init/deinit`, `add(kind) !id`, `remove(id) bool`,
   `get(id) ?*Object`, `save(io, path)`, `load(io, path)`
   (`error.UnsupportedSceneVersion` unless `version == 1`).
+- `SceneSpawn`: `SpawnTextures{ player, sprite }`,
+  `spawnObject(world, object, textures) !?Entity`,
+  `spawnDocument(world, doc, textures) !?Entity` (first `.sprite` or null).
+  Base components only (Transform + SpriteRenderer + Collider2D, default
+  5x1 animation on player); game markers (Collectible, scripts) stay in
+  the caller. Invalid size/position → `error.InvalidSceneObject`, nothing spawned.
 - `Script`: `init(game, &behavior)` / `initWithStart(game, &behavior)` for
   structs with `pub onUpdate(*T, *Ctx)` or the ctx-free
   `pub onUpdate(*T, *Game, f32)` (either may return `void` or `!void`; plus

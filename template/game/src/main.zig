@@ -28,14 +28,18 @@ pub fn main(init: std.process.Init) !void {
     try scene.load(init.io, STARTUP_SCENE);
 
     // 3. Nở mỗi object thành entity + components (như Unity instantiate prefab).
+    // Base components do SceneSpawn lo; marker game-specific gắn thêm tại đây.
     const player_sheet = try game.assets.loadTextureFile(init.io, "Assets/player_sheet.png", 16 * 1024 * 1024);
     const sprite = try game.assets.loadTextureFile(init.io, "Assets/sprite.png", 16 * 1024 * 1024);
+    const textures = ez_engine.SceneSpawn.SpawnTextures{ .player = player_sheet, .sprite = sprite };
     var player: ?ez_engine.Entity = null;
     for (scene.objects.items) |object| {
-        switch (object.kind) {
-            .sprite => player = try spawnPlayer(game, player_sheet, object),
-            .pickup => try spawnPickup(game, sprite, object),
-            .obstacle => try spawnWall(game, sprite, object),
+        const spawned = try ez_engine.SceneSpawn.spawnObject(&game.world, object, textures);
+        if (object.kind == .sprite and player == null) {
+            player = spawned;
+            (try game.world.get(player.?, ez_engine.RenderComponents.SpriteAnimation)).clip = Player.idle_clip;
+        } else if (object.kind == .pickup) {
+            try game.world.add(spawned.?, Pickup.Collectible{});
         }
     }
     if (player == null) return error.MissingPlayer;
@@ -87,67 +91,3 @@ const StatsLogger = struct {
         );
     }
 };
-
-// Prefab "player": hình lấy từ sprite sheet (hằng số theo art),
-// còn vị trí + collider lấy từ scene (sửa JSON là đổi gameplay).
-fn spawnPlayer(game: *ez_engine.Game, texture: ez_engine.TextureHandle, object: ez_engine.Scene.Object) !ez_engine.Entity {
-    const entity = try game.world.create();
-    try game.world.add(entity, ez_engine.RenderComponents.Transform{
-        .position = .{ .x = object.position[0], .y = object.position[1] },
-    });
-    try game.world.add(entity, ez_engine.RenderComponents.SpriteRenderer{
-        .texture = texture,
-        .size = .{ .x = 240, .y = 240 },
-    });
-    try game.world.add(entity, ez_engine.RenderComponents.SpriteAnimation{
-        .sheet = .{ .columns = 5, .rows = 1 },
-        .clip = Player.idle_clip,
-    });
-    try game.world.add(entity, ez_engine.Collision2D.Collider2D{
-        .size = .{ .x = object.size[0], .y = object.size[1] },
-        .solid = true,
-        .layer = 1,
-    });
-    return entity;
-}
-
-// Prefab "pickup": vị trí + collider từ scene, màu cam để dễ thấy.
-fn spawnPickup(game: *ez_engine.Game, texture: ez_engine.TextureHandle, object: ez_engine.Scene.Object) !void {
-    const entity = try game.world.create();
-    try game.world.add(entity, ez_engine.RenderComponents.Transform{
-        .position = .{ .x = object.position[0], .y = object.position[1] },
-    });
-    try game.world.add(entity, ez_engine.RenderComponents.SpriteRenderer{
-        .texture = texture,
-        .size = .{ .x = object.size[0], .y = object.size[1] },
-        .tint = .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 },
-        .z_index = 1,
-    });
-    try game.world.add(entity, ez_engine.Collision2D.Collider2D{
-        .size = .{ .x = object.size[0], .y = object.size[1] },
-        .layer = 3,
-        .collides_with = ez_engine.Collision2D.layerBit(1),
-    });
-    try game.world.add(entity, Pickup.Collectible{});
-}
-
-// Prefab "wall": khối tĩnh chặn player, kích thước hoàn toàn từ scene.
-fn spawnWall(game: *ez_engine.Game, texture: ez_engine.TextureHandle, object: ez_engine.Scene.Object) !void {
-    const entity = try game.world.create();
-    try game.world.add(entity, ez_engine.RenderComponents.Transform{
-        .position = .{ .x = object.position[0], .y = object.position[1] },
-    });
-    try game.world.add(entity, ez_engine.RenderComponents.SpriteRenderer{
-        .texture = texture,
-        .size = .{ .x = object.size[0], .y = object.size[1] },
-        .tint = .{ .x = 0.45, .y = 0.5, .z = 0.6, .w = 1 },
-        .z_index = 1,
-    });
-    try game.world.add(entity, ez_engine.Collision2D.Collider2D{
-        .size = .{ .x = object.size[0], .y = object.size[1] },
-        .solid = true,
-        .is_static = true,
-        .layer = 2,
-        .collides_with = ez_engine.Collision2D.layerBit(1) | ez_engine.Collision2D.layerBit(2),
-    });
-}
