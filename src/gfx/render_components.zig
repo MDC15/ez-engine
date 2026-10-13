@@ -111,12 +111,26 @@ pub const SpriteAnimation = struct {
 
 /// Draws a texture as a camera-facing 2D quad. `size` is in world units and
 /// `z_index` controls painter's order (lower values are drawn first).
+/// `draw_offset` shifts the quad in world units without touching gameplay
+/// state (used by atlas animation to compensate per-frame drift).
 pub const SpriteRenderer = struct {
     texture: Handles.TextureHandle,
     size: Vec2 = .one,
     tint: Vec4 = .one,
     source_rect: UVRect = .full,
     z_index: i32 = 0,
+    draw_offset: Vec2 = .zero,
+};
+
+/// Plays a named packed-atlas clip; advanced by `AtlasSystem`.
+/// Plain data: the atlas handle + clip/frame indices resolve through the
+/// asset manager at update time (see `playAtlas`).
+pub const AtlasPlayer = struct {
+    atlas: Handles.AtlasHandle,
+    clip_index: u32 = 0,
+    frame_index: u16 = 0,
+    elapsed_seconds: f32 = 0,
+    playing: bool = true,
 };
 
 pub const Static = struct {};

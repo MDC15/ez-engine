@@ -63,6 +63,14 @@ details; consumers only import `ez_engine`.
   `frameUv(i) !UVRect`; `SpriteAnimation{ sheet, clip, ... }` with
   `play(clip)`, `update(sprite, dt)`, and scheduler-ready
   `SpriteAnimation.updateSystem`.
+- Packed atlas (`Atlas`): `load(allocator, json, tex_w, tex_h) !OwnedAtlas`
+  (`version: 1`, named pixel frames + named clips, per-frame `duration_s`
+  and `offset`); `frameUv(name)`, `findClip(name)`; `Manager.loadAtlasFile`
+  / `getAtlas` / `releaseAtlas` (path-cached, texture-independent).
+  `RenderComponents.AtlasPlayer{ atlas, clip_index, ... }` +
+  `Atlas.playAtlas(manager, world, entity, atlas, clip)` and scheduler-ready
+  `Atlas.AtlasSystem` (holds `*Manager`); `SpriteRenderer.draw_offset`
+  shifts the quad in world units and is added at `extract` time.
 - `RenderWorld`: `extract(world)`, `cullSprites2D(Camera2D)`,
   `sortForBatching()`, `batches()` → `Batch{texture, z_index, first, count}`.
 - `Camera2D{ center, viewport_size, zoom }` + `worldToNdc`;

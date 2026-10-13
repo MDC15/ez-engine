@@ -1,0 +1,1 @@
+{"version":1,"frames":[{"name":"a","x":0,"y":0,"w":2,"h":2},{"name":"b","x":2,"y":0,"w":2,"h":2,"offset":[2,0]}],"clips":[{"name":"ab","fps":8,"looping":true,"frames":[{"frame":"a"},{"frame":"b","duration_s":0.5}]}]}

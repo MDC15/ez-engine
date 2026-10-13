@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Packed atlas + named animation clips: `ez_engine.Atlas` (versioned JSON
+  with named frames, per-frame durations/offsets), asset-manager caching
+  (`loadAtlasFile`/`getAtlas`/`releaseAtlas`), `AtlasPlayer` component with
+  `playAtlas` + manager-holding `AtlasSystem`, and `SpriteRenderer.draw_offset`
+  applied at extract time. Uniform-grid animation is unchanged.
+
 ## 0.1.0 - 2026-10-13
 
 ### Added
