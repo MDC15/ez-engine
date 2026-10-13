@@ -26,7 +26,7 @@ MyFirstGame/
   src/scripts/         # one MonoBehaviour-style file per behavior
   src/scripts/player.zig    # Player movement + animation
   src/scripts/pickup.zig    # Collectible tag + pickup listener
-  Assets/              # sample sprites copied from the framework
+  Assets/              # Sprites/Audio/Fonts/Shaders copied from the framework
   Scenes/              # scene files (ez_engine.Scene format)
   Scenes/editor_scene.json  # sample scene, format version 1
   project.json         # name, format version, startup scene

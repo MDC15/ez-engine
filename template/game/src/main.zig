@@ -29,8 +29,8 @@ pub fn main(init: std.process.Init) !void {
 
     // 3. Nở mỗi object thành entity + components (như Unity instantiate prefab).
     // Base components do SceneSpawn lo; marker game-specific gắn thêm tại đây.
-    const player_sheet = try game.assets.loadTextureFile(init.io, "Assets/player_sheet.png", 16 * 1024 * 1024);
-    const sprite = try game.assets.loadTextureFile(init.io, "Assets/sprite.png", 16 * 1024 * 1024);
+    const player_sheet = try game.assets.loadTextureFile(init.io, "Assets/Sprites/player_sheet.png", 16 * 1024 * 1024);
+    const sprite = try game.assets.loadTextureFile(init.io, "Assets/Sprites/sprite.png", 16 * 1024 * 1024);
     const textures = ez_engine.SceneSpawn.SpawnTextures{ .player = player_sheet, .sprite = sprite };
     var player: ?ez_engine.Entity = null;
     for (scene.objects.items) |object| {

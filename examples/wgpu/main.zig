@@ -97,8 +97,8 @@ pub fn main(init: std.process.Init) !void {
     try app.init(allocator, "ez-engine | textured 2D sprites", 1280, 720, false);
     defer app.deinit();
     var game = &app.game;
-    const player_sheet = try game.assets.loadTextureFile(init.io, "assets/player_sheet.png", 16 * 1024 * 1024);
-    const decoration_texture = try game.assets.loadTextureFile(init.io, "assets/sprite.png", 16 * 1024 * 1024);
+    const player_sheet = try game.assets.loadTextureFile(init.io, "assets/Sprites/player_sheet.png", 16 * 1024 * 1024);
+    const decoration_texture = try game.assets.loadTextureFile(init.io, "assets/Sprites/sprite.png", 16 * 1024 * 1024);
     const sprite = try game.world.create();
     try game.world.add(sprite, game_lib.RenderComponents.Transform{ .position = .{ .x = 0, .y = 0 } });
     try game.world.add(sprite, game_lib.RenderComponents.SpriteRenderer{

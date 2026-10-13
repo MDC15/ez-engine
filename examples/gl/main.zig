@@ -99,8 +99,8 @@ pub fn main(init: std.process.Init) !void {
     var game = &app.game;
     // Small window, sharp image: render offscreen at 1080p, downscale on present.
     app.backend.render_extent = .{ .width = 1920, .height = 1080 };
-    const player_sheet = try game.assets.loadTextureFile(init.io, "assets/player_sheet.png", 16 * 1024 * 1024);
-    const decoration_texture = try game.assets.loadTextureFile(init.io, "assets/sprite.png", 16 * 1024 * 1024);
+    const player_sheet = try game.assets.loadTextureFile(init.io, "assets/Sprites/player_sheet.png", 16 * 1024 * 1024);
+    const decoration_texture = try game.assets.loadTextureFile(init.io, "assets/Sprites/sprite.png", 16 * 1024 * 1024);
     const sprite = try game.world.create();
     try game.world.add(sprite, game_lib.RenderComponents.Transform{ .position = .{ .x = 0, .y = 0 } });
     try game.world.add(sprite, game_lib.RenderComponents.SpriteRenderer{
