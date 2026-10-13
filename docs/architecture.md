@@ -57,8 +57,12 @@ backend. `src/gfx/wgpu/` and `src/app/` are deliberately NOT exported from
   copy on the next render.
 - A rendering backend resolves handles and owns its GPU resources
   (pipelines, buffers, textures, bind groups).
-- ECS components are copied during archetype migration. Keep components plain
-  data; do not put owning pointers or values that require destructors in them.
+- ECS components are byte-copied on `add` and during archetype migration,
+  with no per-instance destructor. Re-`add` overwrites the stored bytes;
+  `remove`/`destroy` drops them silently. Keep components plain data; do
+  not put owning pointers or values that require destructors in them —
+  a component holding a slice only stores the pointer/length, never takes
+  ownership (see `tests/ecs_lifetime_test.zig`).
 
 ## Backends
 

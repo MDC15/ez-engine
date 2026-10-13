@@ -35,8 +35,12 @@ details; consumers only import `ez_engine`.
 
 - `World`: `init/deinit`, `create() !Entity`, `destroy(entity)`,
   `add(entity, value: anytype)`, `remove(T)`, `get(T) !*T`, `has(T)`,
-  `query(spec)`, `aliveCount()`. Components must be plain data (copied on
-  archetype migration — no owning pointers).
+  `query(spec)`, `aliveCount()`. Components must be plain data: `add`
+  byte-copies the value (mutating the source afterwards changes nothing),
+  migration re-copies the bytes, re-`add` overwrites, and
+  `remove`/`destroy` drops the bytes silently with no destructor call.
+  Never store owning resources (allocated slices, file handles) in a
+  component — a stored slice keeps pointing at the caller's memory.
 - `World.destroyDeferred(entity) !void` queues a destroy for a safe boundary;
   `World.flushDeferred()` destroys the queue (already-dead entities are
   dropped, `OutOfMemory` keeps the entry for a retry);

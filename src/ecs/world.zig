@@ -14,7 +14,10 @@ const Record = struct {
 
 /// Archetype ECS with columnar component storage. Components must be plain
 /// data values with alignment no greater than 16 bytes; they are byte-copied
-/// during archetype migration and do not have per-instance destructors.
+/// on `add` and during archetype migration and do not have per-instance
+/// destructors. Re-`add` overwrites the stored bytes; `remove`/`destroy`
+/// drops them silently without freeing anything. Never store owning
+/// resources (allocated slices, handles needing close/free) in a component.
 pub const World = struct {
     allocator: std.mem.Allocator,
     records: std.ArrayListUnmanaged(Record) = .empty,
