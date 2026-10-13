@@ -250,6 +250,10 @@ pub const Audio = struct {
 
         fn deinitImpl(_: *anyopaque) void {}
     };
+
+    /// PulseAudio playback device (see `pulse.zig`). Nested here so games
+    /// write `Audio.PulseDevice`; prefer `NullDevice` for tests/headless.
+    pub const PulseDevice = @import("pulse.zig").PulseDevice;
 };
 
 test "software mixer sums voices and clamps output" {
