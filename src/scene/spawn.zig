@@ -93,7 +93,10 @@ pub fn spawnObject(world: *World, object: Scene.Object, textures: SpawnTextures)
 
 /// Spawns every object in a loaded document. Returns the first .sprite
 /// entity (the player) or null when the document has none.
+/// Atomic: all objects are validated before any entity is created, so an
+/// invalid object leaves the world untouched.
 pub fn spawnDocument(world: *World, doc: Scene.Document, textures: SpawnTextures) !?Entity {
+    for (doc.objects.items) |object| try validate(object);
     var player: ?Entity = null;
     for (doc.objects.items) |object| {
         const spawned = try spawnObject(world, object, textures);

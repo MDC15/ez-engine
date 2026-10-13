@@ -43,3 +43,23 @@ test "spawnObject rejects non-finite position and zero size without spawning" {
     try std.testing.expectError(error.InvalidSceneObject, ez.SceneSpawn.spawnObject(&world, bad_size, textures));
     try std.testing.expectEqual(@as(usize, 0), world.aliveCount());
 }
+
+test "spawnDocument is atomic: one invalid object spawns nothing" {
+    var world = ez.World.init(std.testing.allocator);
+    defer world.deinit();
+    var doc = ez.Scene.Document.init(std.testing.allocator);
+    defer doc.deinit();
+
+    const ok_id = try doc.add(.sprite);
+    doc.get(ok_id).?.position = .{ 10, 20 };
+    doc.get(ok_id).?.size = .{ 64, 64 };
+    const bad_id = try doc.add(.pickup);
+    doc.get(bad_id).?.position = .{ 0, 0 };
+    doc.get(bad_id).?.size = .{ 0, 64 };
+    const textures = ez.SceneSpawn.SpawnTextures{
+        .player = .{ .index = 1 },
+        .sprite = .{ .index = 2 },
+    };
+    try std.testing.expectError(error.InvalidSceneObject, ez.SceneSpawn.spawnDocument(&world, doc, textures));
+    try std.testing.expectEqual(@as(usize, 0), world.aliveCount());
+}
