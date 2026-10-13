@@ -33,3 +33,7 @@ Assets/               # textures and Shaders/
 - Configure post-processing in code through `game.post_process`: `grayscale`
   and `vignette` accept `0...1`, while `exposure` accepts `0...8`. Shaders are
   in `Assets/Shaders/`; edit them and rebuild to apply changes.
+- The WGPU starter uses FIFO presentation (VSync) to pace frames with the
+  display refresh. Avoid adding a second software frame cap with
+  `game.setTargetFps(...)`; use that API only when presentation is not already
+  synchronized. Pass `0` to disable its software frame pacing.

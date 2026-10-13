@@ -40,6 +40,7 @@ pub const Game = struct {
     update_count: u64 = 0,
     input_consumed: bool = true,
     running: bool = false,
+    target_fps: u32 = 0,
     framebuffer_extent: Platform.Extent2D = .{ .width = 0, .height = 0 },
     rendered_extent: Platform.Extent2D = .{ .width = 0, .height = 0 },
 
@@ -157,16 +158,38 @@ pub const Game = struct {
         return self.reclaimer.frameAllocator();
     }
 
+    /// Limits the run loop to at most `fps` rendered frames per second.
+    /// Use only when the renderer does not already pace frames (for example,
+    /// through VSync). Pass 0 to disable frame pacing.
+    pub fn setTargetFps(self: *Game, fps: u32) void {
+        self.target_fps = fps;
+    }
+
     pub fn run(self: *Game, io: std.Io, window: Platform.Window) !void {
         var clock = Clock.start(io);
         self.running = true;
         self.framebuffer_extent = window.extent();
         while (self.running and !self.loop.isStopped() and !window.shouldClose()) {
+            const frame_start_ns = std.Io.Clock.awake.now(io).nanoseconds;
             self.beginFrame();
             try window.pollEvents(onPlatformEvent, self);
             if (!self.running or window.shouldClose()) break;
             try self.tick(clock.tick(io));
+            const remaining_ns = frameDelayNanoseconds(
+                self.target_fps,
+                std.Io.Clock.awake.now(io).nanoseconds - frame_start_ns,
+            );
+            if (remaining_ns > 0) {
+                try std.Io.sleep(io, .fromNanoseconds(remaining_ns), .awake);
+            }
         }
+    }
+
+    fn frameDelayNanoseconds(target_fps: u32, elapsed_ns: i96) i96 {
+        if (target_fps == 0) return 0;
+        const fps: i96 = target_fps;
+        const frame_ns = @divTrunc(@as(i96, std.time.ns_per_s) + fps - 1, fps);
+        return @max(0, frame_ns - elapsed_ns);
     }
 
     fn onPlatformEvent(context: ?*anyopaque, event: Platform.Event) void {
@@ -179,6 +202,13 @@ pub const Game = struct {
         }
     }
 };
+
+test "target FPS frame pacing waits only for the remaining frame time" {
+    try std.testing.expectEqual(@as(i96, 16_666_667), Game.frameDelayNanoseconds(60, 0));
+    try std.testing.expectEqual(@as(i96, 6_666_667), Game.frameDelayNanoseconds(60, 10_000_000));
+    try std.testing.expectEqual(@as(i96, 0), Game.frameDelayNanoseconds(60, 20_000_000));
+    try std.testing.expectEqual(@as(i96, 0), Game.frameDelayNanoseconds(0, 0));
+}
 
 test "game frame updates systems and extracts sprite items" {
     const Components = @import("gfx/render_components.zig");

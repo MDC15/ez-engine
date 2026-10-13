@@ -198,8 +198,21 @@ pub fn build(b: *std.Build) void {
 
     const build_gl = b.step("gl", "Build the OpenGL sprite sample");
     build_gl.dependOn(&gl.step);
+    const run_gl_command = b.addRunArtifact(gl);
+    if (b.graph.environ_map.get("DRI_PRIME") == null) {
+        run_gl_command.setEnvironmentVariable("DRI_PRIME", "1");
+    }
+    if (b.graph.environ_map.get("WSL_DISTRO_NAME") != null) {
+        run_gl_command.setEnvironmentVariable("XDG_SESSION_TYPE", "x11");
+        if (b.graph.environ_map.get("GALLIUM_DRIVER") == null) {
+            run_gl_command.setEnvironmentVariable("GALLIUM_DRIVER", "d3d12");
+        }
+        if (b.graph.environ_map.get("MESA_D3D12_DEFAULT_ADAPTER_NAME") == null) {
+            run_gl_command.setEnvironmentVariable("MESA_D3D12_DEFAULT_ADAPTER_NAME", "NVIDIA");
+        }
+    }
     const run_gl = b.step("gl-run", "Run the OpenGL sprite sample");
-    run_gl.dependOn(&b.addRunArtifact(gl).step);
+    run_gl.dependOn(&run_gl_command.step);
 
     const wgpu_module = b.createModule(.{
         .root_source_file = b.path("examples/wgpu/main.zig"),
@@ -228,6 +241,10 @@ pub fn build(b: *std.Build) void {
 
     const build_wgpu = b.step("wgpu", "Build the WGPU sprite sample");
     build_wgpu.dependOn(&wgpu.step);
+    const run_wgpu_command = b.addRunArtifact(wgpu);
+    if (b.graph.environ_map.get("DRI_PRIME") == null) {
+        run_wgpu_command.setEnvironmentVariable("DRI_PRIME", "1");
+    }
     const run_wgpu = b.step("wgpu-run", "Run the WGPU sprite sample");
-    run_wgpu.dependOn(&b.addRunArtifact(wgpu).step);
+    run_wgpu.dependOn(&run_wgpu_command.step);
 }

@@ -42,13 +42,21 @@ zig build run
 
 On WSL, WSLg must be available for the desktop window. The framework has
 two desktop backends behind one `Backend` vtable: WGPU (Dawn) and OpenGL.
-The samples run on either — `zig build wgpu-run` or `zig build gl-run`. On
-WSL, the WGPU/Dawn path has no hardware Vulkan, so the GL backend is the one
-that reaches the discrete GPU, via Mesa's OpenGL-on-D3D12 driver selected by
-environment only: `GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA`.
-Without those variables GL falls back to the software llvmpipe renderer and
-logs a warning; driver/adapter selection stays an environment concern, never
-hardcoded. The starter is
+The samples run on either — `zig build wgpu-run` or `zig build gl-run`.
+`wgpu-run` sets `DRI_PRIME=1` by default to prefer a discrete Mesa Vulkan
+device, and `zgpu` requests a high-performance adapter. This only works when
+the Vulkan driver exposes the GPU to Dawn; startup adapter information shows
+what was actually selected. If it reports `llvmpipe` / `cpu`, Vulkan hardware
+acceleration is unavailable in that environment, and resizing the window
+does not switch the adapter.
+
+`gl-run` also prefers discrete GPUs through Mesa; on WSLg it selects the X11
+platform to avoid Mesa EGL device-probe warnings, uses the OpenGL-on-D3D12
+driver, and prefers the NVIDIA adapter. Existing driver/adapter settings are
+preserved. For a different WSL GPU, set
+`MESA_D3D12_DEFAULT_ADAPTER_NAME` to a substring of its adapter name before
+running. If hardware acceleration is unavailable, GL may fall back to
+llvmpipe (software) and logs a warning. The starter is
 organized like Unity: `Scenes/editor_scene.json` holds every object's
 position and size, `src/main.zig` only bootstraps (window → load scene →
 spawn entities → wire systems → run), and each behavior lives in its

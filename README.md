@@ -39,11 +39,25 @@ Chạy từ thư mục repository:
 zig build             # Build thư viện tĩnh ez_engine
 zig build test        # Chạy toàn bộ unit tests
 zig build wgpu        # Build sample sprite WGPU (cần Linux x86_64)
-zig build wgpu-run    # Chạy sample, cần WSLg
+zig build wgpu-run    # Chạy WGPU, yêu cầu Mesa ưu tiên GPU rời nếu có
 zig build gl          # Build sample OpenGL (cần Linux x86_64)
-zig build gl-run      # Chạy sample OpenGL, cần WSLg
+zig build gl-run      # Chạy OpenGL, tự ưu tiên GPU rời nếu có
 zig build docs        # Xuất API docs ra zig-out/docs
 ```
+
+`gl-run` đặt `DRI_PRIME=1` cho Mesa; trên WSLg dùng X11 để tránh các cảnh báo
+EGL khi dò thiết bị, đồng thời chọn driver D3D12 và ưu tiên adapter NVIDIA.
+Các thiết lập driver/adapter đã đặt sẵn sẽ được giữ nguyên. Nếu adapter không
+phải NVIDIA, đặt `MESA_D3D12_DEFAULT_ADAPTER_NAME` thành một phần tên GPU trước
+khi chạy. Xác nhận log `gl renderer` có tên GPU thay vì `llvmpipe`
+(software renderer).
+
+`wgpu-run` cũng đặt `DRI_PRIME=1` nếu biến này chưa được đặt; `zgpu` đã yêu cầu
+adapter `high_performance`. GPU vẫn chỉ được chọn nếu Vulkan driver cung cấp nó
+cho Dawn. Hãy xem thông tin adapter lúc khởi động: nếu là `llvmpipe` / `cpu`,
+GPU rời chưa được expose qua Vulkan; resize cửa sổ không chuyển adapter.
+`MESA_D3D12_DEFAULT_ADAPTER_NAME` chỉ áp dụng cho driver OpenGL D3D12, không
+chọn GPU cho WGPU/Vulkan.
 
 Trên target khác Linux x86_64, các step desktop bị bỏ qua kèm warning; lib và
 tests vẫn build bình thường.
@@ -229,11 +243,11 @@ render nằm trong `src/gfx/gl`). Build bằng `zig build gl`, chạy bằng:
 GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA zig build gl-run
 ```
 
-Trên WSL, Dawn không có Vulkan tăng tốc phần cứng nên sample WGPU phải chạy
-trên CPU; driver OpenGL-on-D3D12 của Mesa (`d3d12`) mới chạm tới được GPU rời.
-Hai biến môi trường chỉ chọn adapter — chọn driver vẫn là chuyện của môi
-trường, không phải của code. Không đặt biến, GL rơi về llvmpipe (phần mềm) và
-app log cảnh báo.
+Trên WSL, `wgpu-run` ưu tiên GPU rời qua Vulkan nếu driver expose được adapter
+cho Dawn. Nếu log adapter lúc khởi động báo `llvmpipe` / `cpu`, WGPU vẫn đang
+chạy phần mềm; dùng `gl-run` với Mesa OpenGL-on-D3D12 để truy cập GPU rời.
+`gl-run` tự chọn D3D12 và adapter NVIDIA trên WSLg, hoặc có thể đặt
+`GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA` trước khi chạy.
 
 ## Vẽ sprite
 
