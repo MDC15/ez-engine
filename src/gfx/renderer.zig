@@ -7,7 +7,6 @@ pub const BackendKind = enum { headless };
 /// Offscreen resolution for the scene pass. A fixed override lets a small
 /// window render sharp (e.g. 1920x1080) and downscale on present; `null`
 /// follows the window/framebuffer size (current default behavior).
-
 pub const Backend = struct {
     context: *anyopaque,
     vtable: *const VTable,

@@ -327,5 +327,4 @@ tools/                # scaffold.zig: `zig build new` generator
   đăng ký một dòng qua `Script.register`.
 - Project scaffold: `zig build new -Dname=...` sinh cấu trúc project chuẩn
   (starter dùng App + Script, đã nối `wgpu_backend`).
-- Chưa có: mesh/material 3D, packed atlas, audio device, vật lý mô phỏng,
-  pipeline đưa scene vào runtime, CI, license file.
+- Chưa có: mesh/material 3D, packed atlas, audio device OS, vật lý mô phỏng.

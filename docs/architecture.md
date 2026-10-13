@@ -198,6 +198,9 @@ recommended pattern.
   future design decision, not a leftover.
 - Uniform-grid sprite sheets only; no packed atlas or complex clips.
 - Discrete AABB overlap only; no physics simulation.
-- Software audio mixer only; no audio-device backend, no resampling.
+- Software audio mixer + offline resampler; `Audio.Device` vtable with a
+  headless `NullDevice`, but no OS audio driver yet.
 - No reference-image test for the WGPU sample.
-- No CI, no license file, version is `0.1.0-dev`.
+- CI runs `zig build`, `zig build test`, `zig fmt --check` (see
+  `.github/workflows/ci.yml`); license is MIT (`LICENSE`); version is
+  `0.1.0-dev` (not tagged yet).
