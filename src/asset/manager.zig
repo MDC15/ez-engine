@@ -1,6 +1,7 @@
 const std = @import("std");
 const Handles = @import("../core/handle.zig");
 const TextureLoader = @import("texture_loader.zig");
+const AtlasModule = @import("../gfx/atlas.zig");
 
 pub const AssetHandle = Handles.Handle(enum { asset });
 
@@ -80,6 +81,15 @@ fn releaseTextureData(allocator: std.mem.Allocator, texture: *TextureLoader.Text
     texture.deinit(allocator);
 }
 
+pub const AtlasEntry = struct {
+    texture: Handles.TextureHandle,
+    atlas: AtlasModule.OwnedAtlas,
+};
+
+fn releaseAtlasData(allocator: std.mem.Allocator, entry: *AtlasEntry) void {
+    entry.atlas.deinit(allocator);
+}
+
 /// File-backed binary asset cache. Repeated paths resolve to the same live
 /// handle; callers retain handles and explicitly release them when finished.
 pub const Manager = struct {
@@ -88,16 +98,23 @@ pub const Manager = struct {
     paths: std.StringHashMapUnmanaged(AssetHandle) = .empty,
     textures: Store(TextureLoader.TextureData, Handles.TextureHandle, releaseTextureData),
     texture_paths: std.StringHashMapUnmanaged(Handles.TextureHandle) = .empty,
+    atlases: Store(AtlasEntry, Handles.AtlasHandle, releaseAtlasData),
+    atlas_paths: std.StringHashMapUnmanaged(Handles.AtlasHandle) = .empty,
 
     pub fn init(allocator: std.mem.Allocator) Manager {
         return .{
             .allocator = allocator,
             .assets = Store(Asset, AssetHandle, releaseAsset).init(allocator),
             .textures = Store(TextureLoader.TextureData, Handles.TextureHandle, releaseTextureData).init(allocator),
+            .atlases = Store(AtlasEntry, Handles.AtlasHandle, releaseAtlasData).init(allocator),
         };
     }
 
     pub fn deinit(self: *Manager) void {
+        var atlas_keys = self.atlas_paths.keyIterator();
+        while (atlas_keys.next()) |key| self.allocator.free(key.*);
+        self.atlas_paths.deinit(self.allocator);
+        self.atlases.deinit();
         var texture_keys = self.texture_paths.keyIterator();
         while (texture_keys.next()) |key| self.allocator.free(key.*);
         self.texture_paths.deinit(self.allocator);
@@ -146,6 +163,49 @@ pub const Manager = struct {
         }
     }
 
+    /// Loads a packed atlas: the texture through the shared texture cache plus
+    /// the JSON sidecar parsed against its dimensions. Cached on `json_path`;
+    /// releasing the atlas never releases the texture.
+    pub fn loadAtlasFile(self: *Manager, io: std.Io, json_path: []const u8, texture_path: []const u8, max_bytes: usize) !Handles.AtlasHandle {
+        if (self.atlas_paths.get(json_path)) |handle| {
+            if (self.atlases.get(handle) != null) return handle;
+            return error.AssetCacheCorrupt;
+        }
+
+        const texture_handle = try self.loadTextureFile(io, texture_path, max_bytes);
+        const texture_data = self.getTexture(texture_handle) orelse return error.AssetCacheCorrupt;
+        const asset_handle = try self.loadFile(io, json_path, max_bytes);
+        const asset = self.get(asset_handle) orelse return error.AssetCacheCorrupt;
+        try self.atlas_paths.ensureUnusedCapacity(self.allocator, 1);
+        const owned_path = try self.allocator.dupe(u8, json_path);
+        errdefer self.allocator.free(owned_path);
+        var owned = try AtlasModule.load(self.allocator, asset.bytes, texture_data.width, texture_data.height);
+        errdefer owned.deinit(self.allocator);
+        const handle = try self.atlases.insert(.{ .texture = texture_handle, .atlas = owned });
+        self.atlas_paths.putAssumeCapacityNoClobber(owned_path, handle);
+        return handle;
+    }
+
+    pub fn getAtlas(self: *Manager, handle: Handles.AtlasHandle) ?*AtlasEntry {
+        return self.atlases.get(handle);
+    }
+
+    pub fn releaseAtlas(self: *Manager, handle: Handles.AtlasHandle) !void {
+        try self.atlases.remove(handle);
+        var found_path: ?[]const u8 = null;
+        var iter = self.atlas_paths.iterator();
+        while (iter.next()) |entry| {
+            if (entry.value_ptr.index == handle.index and entry.value_ptr.generation == handle.generation) {
+                found_path = entry.key_ptr.*;
+                break;
+            }
+        }
+        if (found_path) |path_key| {
+            _ = self.atlas_paths.remove(path_key);
+            self.allocator.free(@constCast(path_key));
+        }
+    }
+
     pub fn loadFile(self: *Manager, io: std.Io, path: []const u8, max_bytes: usize) !AssetHandle {
         if (self.paths.get(path)) |handle| {
             if (self.assets.get(handle) != null) return handle;
@@ -190,4 +250,20 @@ test "asset handles become stale after release and slot reuse" {
     const second = try meshes.insert(20);
     try std.testing.expectEqual(first.index, second.index);
     try std.testing.expect(first.generation != second.generation);
+}
+
+test "manager caches atlas by json path and keeps texture independent" {
+    var threaded = std.Io.Threaded.init(std.testing.allocator, .{});
+    defer threaded.deinit();
+    const io = threaded.io();
+    var manager = Manager.init(std.testing.allocator);
+    defer manager.deinit();
+    const h1 = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
+    const h2 = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
+    try std.testing.expectEqual(h1.index, h2.index);
+    try std.testing.expect(manager.getAtlas(h1) != null);
+    try manager.releaseAtlas(h1);
+    try std.testing.expect(manager.getAtlas(h1) == null);
+    const tex = try manager.loadTextureFile(io, "assets/atlas_test.ztex", 1024 * 1024);
+    try std.testing.expect(manager.getTexture(tex) != null);
 }
