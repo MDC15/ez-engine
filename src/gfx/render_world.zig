@@ -79,7 +79,11 @@ pub const RenderWorld = struct {
         while (sprites.next()) |item| {
             try self.add(.{
                 .texture = item.SpriteRenderer.texture,
-                .position = item.Transform.position,
+                .position = .{
+                    .x = item.Transform.position.x + item.SpriteRenderer.draw_offset.x,
+                    .y = item.Transform.position.y + item.SpriteRenderer.draw_offset.y,
+                    .z = item.Transform.position.z,
+                },
                 .rotation = item.Transform.rotation,
                 .scale = item.Transform.scale,
                 .sprite_size = item.SpriteRenderer.size,
