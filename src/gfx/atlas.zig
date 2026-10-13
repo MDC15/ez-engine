@@ -286,8 +286,8 @@ test "atlas clip advances named frames and applies draw offset" {
     const io = threaded.io();
     var manager = Manager.init(std.testing.allocator);
     defer manager.deinit();
-    const h = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
-    const tex = try manager.loadTextureFile(io, "assets/atlas_test.ztex", 1024 * 1024);
+    const h = try manager.loadAtlasFile(io, "tests/fixtures/atlas_test.json", "tests/fixtures/atlas_test.ztex", 1024 * 1024);
+    const tex = try manager.loadTextureFile(io, "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     var world = World.init(std.testing.allocator);
     defer world.deinit();
     const e = try world.create();
@@ -308,7 +308,7 @@ test "playAtlas with unknown clip leaves the entity untouched" {
     const io = threaded.io();
     var manager = Manager.init(std.testing.allocator);
     defer manager.deinit();
-    const h = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
+    const h = try manager.loadAtlasFile(io, "tests/fixtures/atlas_test.json", "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     var world = World.init(std.testing.allocator);
     defer world.deinit();
     const e = try world.create();
@@ -322,8 +322,8 @@ test "system with released atlas leaves the sprite untouched" {
     const io = threaded.io();
     var manager = Manager.init(std.testing.allocator);
     defer manager.deinit();
-    const h = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
-    const tex = try manager.loadTextureFile(io, "assets/atlas_test.ztex", 1024 * 1024);
+    const h = try manager.loadAtlasFile(io, "tests/fixtures/atlas_test.json", "tests/fixtures/atlas_test.ztex", 1024 * 1024);
+    const tex = try manager.loadTextureFile(io, "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     var world = World.init(std.testing.allocator);
     defer world.deinit();
     const e = try world.create();

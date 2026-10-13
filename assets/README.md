@@ -5,6 +5,7 @@ Standard asset folders for games scaffolded with `zig build new`
 
 ```text
 Sprites/          finished art: PNG or ZTEX + atlas JSON sidecars
+UI/               buttons, panels, icons, cursors (see UI/README.md)
 Audio/Music/      looping tracks (WAV 48 kHz; resample offline if needed)
 Audio/SFX/        one-shot sounds (WAV 48 kHz)
 Fonts/            reserved — the engine has no font renderer yet

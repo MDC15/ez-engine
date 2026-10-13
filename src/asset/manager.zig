@@ -258,12 +258,12 @@ test "manager caches atlas by json path and keeps texture independent" {
     const io = threaded.io();
     var manager = Manager.init(std.testing.allocator);
     defer manager.deinit();
-    const h1 = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
-    const h2 = try manager.loadAtlasFile(io, "assets/atlas_test.json", "assets/atlas_test.ztex", 1024 * 1024);
+    const h1 = try manager.loadAtlasFile(io, "tests/fixtures/atlas_test.json", "tests/fixtures/atlas_test.ztex", 1024 * 1024);
+    const h2 = try manager.loadAtlasFile(io, "tests/fixtures/atlas_test.json", "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     try std.testing.expectEqual(h1.index, h2.index);
     try std.testing.expect(manager.getAtlas(h1) != null);
     try manager.releaseAtlas(h1);
     try std.testing.expect(manager.getAtlas(h1) == null);
-    const tex = try manager.loadTextureFile(io, "assets/atlas_test.ztex", 1024 * 1024);
+    const tex = try manager.loadTextureFile(io, "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     try std.testing.expect(manager.getTexture(tex) != null);
 }
