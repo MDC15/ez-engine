@@ -27,6 +27,9 @@ details; consumers only import `ez_engine`.
 - `game.renderer: ?Renderer.Backend`, `game.camera_2d: Camera2D`,
   `game.debug: Debug.Monitor`, `game.logger: Logging.Logger`,
   `game.input: Input`, `game.assets: Assets`, `game.world: World`.
+- `game.post_process: PostProcess.Settings` — post-render color effects;
+  `grayscale` and `vignette` are `0...1`, `exposure` is `0...8`. Defaults
+  (`0`, `0`, `1`) leave the image unchanged.
 
 ## ECS
 

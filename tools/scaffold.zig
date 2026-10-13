@@ -161,6 +161,24 @@ fn patchFingerprint(io: std.Io, allocator: std.mem.Allocator, target: []const u8
     patched.deinit(allocator);
 }
 
+fn copyAssetTree(io: std.Io, allocator: std.mem.Allocator, source_path: []const u8, destination_path: []const u8) !void {
+    try std.Io.Dir.cwd().createDirPath(io, destination_path);
+    var source_dir = try std.Io.Dir.cwd().openDir(io, source_path, .{ .iterate = true });
+    defer source_dir.close(io);
+    var iterator = source_dir.iterate();
+    while (try iterator.next(io)) |entry| {
+        const source_entry = try std.fs.path.join(allocator, &.{ source_path, entry.name });
+        defer allocator.free(source_entry);
+        const destination_entry = try std.fs.path.join(allocator, &.{ destination_path, entry.name });
+        defer allocator.free(destination_entry);
+        switch (entry.kind) {
+            .directory => try copyAssetTree(io, allocator, source_entry, destination_entry),
+            .file => try std.Io.Dir.copyFileAbsolute(source_entry, destination_entry, io, .{}),
+            else => {},
+        }
+    }
+}
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const allocator = std.heap.page_allocator;
@@ -216,17 +234,10 @@ pub fn main(init: std.process.Init) !void {
         try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = dst_path, .data = filled });
     }
 
-    var assets = try std.Io.Dir.cwd().openDir(io, try std.fs.path.join(allocator, &.{ root, "assets" }), .{ .iterate = true });
     try std.Io.Dir.cwd().createDirPath(io, try std.fs.path.join(allocator, &.{ target, "Scenes" }));
-    defer assets.close(io);
-    var it = assets.iterate();
-    while (try it.next(io)) |entry| {
-        if (entry.kind != .file) continue;
-        const src_path = try std.fs.path.join(allocator, &.{ root, "assets", entry.name });
-        const dst_path = try std.fs.path.join(allocator, &.{ target, "Assets", entry.name });
-        if (std.fs.path.dirname(dst_path)) |dir| try std.Io.Dir.cwd().createDirPath(io, dir);
-        try std.Io.Dir.copyFileAbsolute(src_path, dst_path, io, .{});
-    }
+    const source_assets = try std.fs.path.join(allocator, &.{ root, "assets" });
+    const destination_assets = try std.fs.path.join(allocator, &.{ target, "Assets" });
+    try copyAssetTree(io, allocator, source_assets, destination_assets);
 
     patchFingerprint(io, allocator, target) catch |err| {
         std.debug.print("ez-new: warning: fingerprint discovery failed ({}), run `zig build` in {s} to fix\n", .{ err, target });

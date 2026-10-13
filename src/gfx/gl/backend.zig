@@ -33,8 +33,11 @@ pub const SpriteBackend = struct {
     window: *zglfw.Window,
     assets: *ez_engine.Assets,
     program: c.GLuint,
+    post_process_program: c.GLuint,
     vao: c.GLuint,
     vbo: c.GLuint,
+    framebuffer: c.GLuint,
+    scene_texture: c.GLuint,
     vertex_capacity: usize = 4096,
     vertices: std.ArrayListUnmanaged(SpriteVertex) = .empty,
     gl_textures: std.AutoHashMapUnmanaged(u64, c.GLuint) = .empty,
@@ -48,29 +51,11 @@ pub const SpriteBackend = struct {
         .deinit = deinitImpl,
     };
 
-    const vertex_source =
-        \\#version 330 core
-        \\layout(location = 0) in vec2 position;
-        \\layout(location = 1) in vec2 uv;
-        \\layout(location = 2) in vec4 tint;
-        \\out vec2 vUv;
-        \\out vec4 vTint;
-        \\void main() {
-        \\    vUv = uv;
-        \\    vTint = tint;
-        \\    gl_Position = vec4(position, 0.0, 1.0);
-        \\}
-    ;
-    const fragment_source =
-        \\#version 330 core
-        \\in vec2 vUv;
-        \\in vec4 vTint;
-        \\uniform sampler2D sprite_texture;
-        \\out vec4 fragColor;
-        \\void main() {
-        \\    fragColor = texture(sprite_texture, vUv) * vTint;
-        \\}
-    ;
+    const shader_sources = @import("shader_sources");
+    const vertex_source = shader_sources.gl_sprite_vertex;
+    const fragment_source = shader_sources.gl_sprite_fragment;
+    const post_process_vertex_source = shader_sources.gl_post_process_vertex;
+    const post_process_fragment_source = shader_sources.gl_post_process_fragment;
 
     /// Creates the program, VAO and vertex buffer, then logs the GL
     /// implementation so software fallbacks are visible at startup. Owns all
@@ -84,8 +69,15 @@ pub const SpriteBackend = struct {
         defer c.glDeleteShader(vertex_shader);
         const fragment_shader = try compileShader(c.GL_FRAGMENT_SHADER, fragment_source);
         defer c.glDeleteShader(fragment_shader);
-        const program = try linkProgram(vertex_shader, fragment_shader);
-        errdefer c.glDeleteProgram(program);
+        const sprite_program = try linkProgram(vertex_shader, fragment_shader);
+        errdefer c.glDeleteProgram(sprite_program);
+
+        const post_vertex_shader = try compileShader(c.GL_VERTEX_SHADER, post_process_vertex_source);
+        defer c.glDeleteShader(post_vertex_shader);
+        const post_fragment_shader = try compileShader(c.GL_FRAGMENT_SHADER, post_process_fragment_source);
+        defer c.glDeleteShader(post_fragment_shader);
+        const post_process_program = try linkProgram(post_vertex_shader, post_fragment_shader);
+        errdefer c.glDeleteProgram(post_process_program);
 
         var vao: c.GLuint = 0;
         c.glGenVertexArrays(1, &vao);
@@ -110,6 +102,13 @@ pub const SpriteBackend = struct {
         c.glVertexAttribPointer(2, 4, c.GL_FLOAT, c.GL_FALSE, @sizeOf(SpriteVertex), @ptrFromInt(16));
         c.glEnableVertexAttribArray(2);
 
+        var framebuffer: c.GLuint = 0;
+        c.glGenFramebuffers(1, &framebuffer);
+        errdefer c.glDeleteFramebuffers(1, &framebuffer);
+        var scene_texture: c.GLuint = 0;
+        c.glGenTextures(1, &scene_texture);
+        errdefer c.glDeleteTextures(1, &scene_texture);
+
         // D9 diagnostic: report which GL implementation we actually landed on.
         const vendor = glString(c.GL_VENDOR);
         const renderer = glString(c.GL_RENDERER);
@@ -129,9 +128,12 @@ pub const SpriteBackend = struct {
             .allocator = allocator,
             .window = window,
             .assets = assets,
-            .program = program,
+            .program = sprite_program,
+            .post_process_program = post_process_program,
             .vao = vao,
             .vbo = vbo,
+            .framebuffer = framebuffer,
+            .scene_texture = scene_texture,
             .extent = .{ .width = 0, .height = 0 },
         };
     }
@@ -150,13 +152,14 @@ pub const SpriteBackend = struct {
         return std.mem.span(@as([*:0]const u8, @ptrCast(ptr)));
     }
 
-    fn compileShader(shader_type: c.GLenum, source: [*:0]const u8) !c.GLuint {
+    fn compileShader(shader_type: c.GLenum, source: []const u8) !c.GLuint {
         const shader = c.glCreateShader(shader_type);
         if (shader == 0) return error.ShaderCreationFailed;
         errdefer c.glDeleteShader(shader);
 
-        const source_ptr: [*c]const c.GLchar = source;
-        c.glShaderSource(shader, 1, @ptrCast(&source_ptr), null);
+        const source_ptr: [*c]const c.GLchar = @ptrCast(source.ptr);
+        const source_length: c.GLint = @intCast(source.len);
+        c.glShaderSource(shader, 1, @ptrCast(&source_ptr), @ptrCast(&source_length));
         c.glCompileShader(shader);
 
         var status: c.GLint = c.GL_FALSE;
@@ -203,6 +206,27 @@ pub const SpriteBackend = struct {
     fn resizeImpl(context: *anyopaque, extent: ez_engine.Renderer.Extent2D) anyerror!void {
         if (extent.width == 0 or extent.height == 0) return error.InvalidExtent;
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
+        c.glBindTexture(c.GL_TEXTURE_2D, self.scene_texture);
+        c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+        c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+        c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
+        c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
+        c.glTexImage2D(
+            c.GL_TEXTURE_2D,
+            0,
+            c.GL_RGBA8,
+            @intCast(extent.width),
+            @intCast(extent.height),
+            0,
+            c.GL_RGBA,
+            c.GL_UNSIGNED_BYTE,
+            null,
+        );
+        c.glBindFramebuffer(c.GL_FRAMEBUFFER, self.framebuffer);
+        c.glFramebufferTexture2D(c.GL_FRAMEBUFFER, c.GL_COLOR_ATTACHMENT0, c.GL_TEXTURE_2D, self.scene_texture, 0);
+        const status = c.glCheckFramebufferStatus(c.GL_FRAMEBUFFER);
+        c.glBindFramebuffer(c.GL_FRAMEBUFFER, 0);
+        if (status != c.GL_FRAMEBUFFER_COMPLETE) return error.FramebufferIncomplete;
         self.extent = extent;
     }
 
@@ -311,6 +335,7 @@ pub const SpriteBackend = struct {
 
     fn renderImpl(context: *anyopaque, world: *const ez_engine.RenderWorld) anyerror!void {
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
+        try world.post_process.validate();
         try self.evictReleasedTextures();
         if (self.extent.width == 0 or self.extent.height == 0) return;
 
@@ -331,6 +356,7 @@ pub const SpriteBackend = struct {
         }
 
         c.glViewport(0, 0, @intCast(self.extent.width), @intCast(self.extent.height));
+        c.glBindFramebuffer(c.GL_FRAMEBUFFER, self.framebuffer);
         c.glClearColor(0.035, 0.055, 0.09, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
         c.glEnable(c.GL_BLEND);
@@ -360,6 +386,18 @@ pub const SpriteBackend = struct {
             }
         }
 
+        c.glBindFramebuffer(c.GL_FRAMEBUFFER, 0);
+        c.glViewport(0, 0, @intCast(self.extent.width), @intCast(self.extent.height));
+        c.glDisable(c.GL_BLEND);
+        c.glUseProgram(self.post_process_program);
+        c.glBindVertexArray(self.vao);
+        c.glActiveTexture(c.GL_TEXTURE0);
+        c.glBindTexture(c.GL_TEXTURE_2D, self.scene_texture);
+        c.glUniform1i(c.glGetUniformLocation(self.post_process_program, "scene_texture"), 0);
+        c.glUniform1f(c.glGetUniformLocation(self.post_process_program, "grayscale_amount"), world.post_process.grayscale);
+        c.glUniform1f(c.glGetUniformLocation(self.post_process_program, "vignette_amount"), world.post_process.vignette);
+        c.glUniform1f(c.glGetUniformLocation(self.post_process_program, "exposure"), world.post_process.exposure);
+        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
         zglfw.swapBuffers(self.window);
     }
 
@@ -378,6 +416,9 @@ pub const SpriteBackend = struct {
         self.vertices.deinit(self.allocator);
         c.glDeleteBuffers(1, &self.vbo);
         c.glDeleteVertexArrays(1, &self.vao);
+        c.glDeleteTextures(1, &self.scene_texture);
+        c.glDeleteFramebuffers(1, &self.framebuffer);
         c.glDeleteProgram(self.program);
+        c.glDeleteProgram(self.post_process_program);
     }
 };

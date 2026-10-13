@@ -1,5 +1,15 @@
 const std = @import("std");
 
+fn readProjectFile(b: *std.Build, path: []const u8) [:0]const u8 {
+    const contents = std.Io.Dir.cwd().readFileAlloc(
+        b.graph.io,
+        b.path(path).getPath(b),
+        b.allocator,
+        .limited(256 * 1024),
+    ) catch @panic("unable to read project shader source file");
+    return b.allocator.dupeZ(u8, contents) catch @panic("unable to allocate project shader source");
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -19,6 +29,14 @@ pub fn build(b: *std.Build) void {
     });
     wgpu_backend.addImport("ez_engine", engine.module("ez_engine"));
     wgpu_backend.addImport("zgpu", zgpu.module("root"));
+    const shader_sources = b.addOptions();
+    shader_sources.addOption([:0]const u8, "gl_sprite_vertex", readProjectFile(b, "Assets/Shaders/gl_sprite.vert"));
+    shader_sources.addOption([:0]const u8, "gl_sprite_fragment", readProjectFile(b, "Assets/Shaders/gl_sprite.frag"));
+    shader_sources.addOption([:0]const u8, "gl_post_process_vertex", readProjectFile(b, "Assets/Shaders/gl_post_process.vert"));
+    shader_sources.addOption([:0]const u8, "gl_post_process_fragment", readProjectFile(b, "Assets/Shaders/gl_post_process.frag"));
+    shader_sources.addOption([:0]const u8, "wgpu_sprite", readProjectFile(b, "Assets/Shaders/wgpu_sprite.wgsl"));
+    shader_sources.addOption([:0]const u8, "wgpu_post_process", readProjectFile(b, "Assets/Shaders/wgpu_post_process.wgsl"));
+    wgpu_backend.addOptions("shader_sources", shader_sources);
 
     const glfw_window = b.createModule(.{
         .root_source_file = engine.path("src/platform/glfw_window.zig"),

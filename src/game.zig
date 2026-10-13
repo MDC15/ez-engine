@@ -12,6 +12,7 @@ const GameLoop = @import("core/game_loop.zig").GameLoop;
 const Reclaimer = @import("core/reclaimer.zig").Reclaimer;
 const Platform = @import("ez_platform");
 const Camera2D = @import("gfx/camera.zig").Camera2D;
+const PostProcess = @import("gfx/post_process.zig").Settings;
 const AssetManager = @import("asset/manager.zig").Manager;
 const DebugMonitor = @import("core/debug.zig").Monitor;
 const Logger = @import("core/log.zig").Logger;
@@ -31,6 +32,7 @@ pub const Game = struct {
     audio: Audio,
     render_world: RenderWorld,
     camera_2d: Camera2D = .{},
+    post_process: PostProcess = .{},
     loop: GameLoop = .{},
     reclaimer: Reclaimer,
     renderer: ?Backend = null,
@@ -93,6 +95,8 @@ pub const Game = struct {
 
     pub fn present(self: *Game, frame_seconds: f32) !void {
         try self.render_world.extract(&self.world);
+        try self.post_process.validate();
+        self.render_world.post_process = self.post_process;
         const extracted_render_items = self.render_world.items.items.len;
         if (self.framebuffer_extent.width > 0 and self.framebuffer_extent.height > 0) {
             const aspect = @as(f32, @floatFromInt(self.framebuffer_extent.width)) /

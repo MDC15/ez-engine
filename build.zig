@@ -1,5 +1,15 @@
 const std = @import("std");
 
+fn readBuildFile(b: *std.Build, path: std.Build.LazyPath) [:0]const u8 {
+    const contents = std.Io.Dir.cwd().readFileAlloc(
+        b.graph.io,
+        path.getPath(b),
+        b.allocator,
+        .limited(256 * 1024),
+    ) catch @panic("unable to read shader source file");
+    return b.allocator.dupeZ(u8, contents) catch @panic("unable to allocate shader source");
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -151,6 +161,15 @@ pub fn build(b: *std.Build) void {
     });
     gl_backend.addImport("ez_engine", game);
     gl_backend.addImport("zglfw", zglfw.module("root"));
+    const shader_sources = b.addOptions();
+    shader_sources.addOption([:0]const u8, "gl_sprite_vertex", readBuildFile(b, b.path("assets/Shaders/gl_sprite.vert")));
+    shader_sources.addOption([:0]const u8, "gl_sprite_fragment", readBuildFile(b, b.path("assets/Shaders/gl_sprite.frag")));
+    shader_sources.addOption([:0]const u8, "gl_post_process_vertex", readBuildFile(b, b.path("assets/Shaders/gl_post_process.vert")));
+    shader_sources.addOption([:0]const u8, "gl_post_process_fragment", readBuildFile(b, b.path("assets/Shaders/gl_post_process.frag")));
+    shader_sources.addOption([:0]const u8, "wgpu_sprite", readBuildFile(b, b.path("assets/Shaders/wgpu_sprite.wgsl")));
+    shader_sources.addOption([:0]const u8, "wgpu_post_process", readBuildFile(b, b.path("assets/Shaders/wgpu_post_process.wgsl")));
+    gl_backend.addOptions("shader_sources", shader_sources);
+    wgpu_backend.addOptions("shader_sources", shader_sources);
     const gl_app = b.createModule(.{
         .root_source_file = b.path("src/app/gl_desktop.zig"),
         .target = target,

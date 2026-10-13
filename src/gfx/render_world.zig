@@ -5,6 +5,7 @@ const Vec3 = @import("../math/vec3.zig").Vec3;
 const Vec4 = @import("../math/vec4.zig").Vec4;
 const Quat = @import("../math/quat.zig").Quat;
 const Camera2D = @import("camera.zig").Camera2D;
+const PostProcess = @import("post_process.zig").Settings;
 const Components = @import("render_components.zig");
 
 /// CPU-side render extraction target. It contains no GPU objects and owns no
@@ -52,6 +53,7 @@ pub const RenderWorld = struct {
     allocator: std.mem.Allocator,
     items: std.ArrayListUnmanaged(RenderItem) = .empty,
     camera_2d: Camera2D = .{},
+    post_process: PostProcess = .{},
 
     pub fn init(allocator: std.mem.Allocator) RenderWorld {
         return .{ .allocator = allocator };

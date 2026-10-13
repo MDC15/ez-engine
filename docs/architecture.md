@@ -8,11 +8,12 @@ Game.frame(dt)
   → RenderWorld.extract: Transform + SpriteRenderer → RenderItems
   → RenderWorld.cullSprites2D: orthographic cull against Camera2D
   → RenderWorld.sortForBatching: painter order (z_index, then extraction order)
-  → Renderer.Backend.render: backend draws batches, resolves texture handles
+  → Renderer.Backend.render: backend renders the scene, then applies post-processing
 ```
 
-`RenderWorld` is temporary CPU-side data: positions, sizes, tints, UVs and
-texture handles. It owns no GPU objects. `Game.frame` also adapts
+`RenderWorld` is temporary CPU-side data: positions, sizes, tints, UVs, texture
+handles and per-frame post-process settings. It owns no GPU objects.
+`Game.frame` also adapts
 `camera_2d.viewport_size` to the framebuffer aspect ratio before culling.
 
 ## Module layout
@@ -70,10 +71,19 @@ All backends implement `Renderer.Backend` (`resize`, `render`, `waitIdle`,
 - **WGPU sprite backend** (`src/gfx/wgpu/backend.zig`, module
   `wgpu_backend`): nearest-filtered, alpha-blended quads. Created with
   `SpriteBackend.init(allocator, graphics, assets)` which builds the WGSL
-  pipeline, sampler and a 4096-vertex buffer that grows by powers of two;
-  release with `deinit()`. Hand `backend.backend()` to `game.renderer`.
+  sprite and post-process pipelines, sampler and a 4096-vertex buffer that
+  grows by powers of two; release with `deinit()`. The scene is rendered to
+  an off-screen texture before the post-process pass. Hand `backend.backend()`
+  to `game.renderer`.
   Textures upload on first use keyed by `(generation << 32) | index`.
   The sample submits directly to the WebGPU queue.
+
+Both GPU backends support grayscale, vignette and exposure adjustments through
+`game.post_process`. Defaults are neutral. Shader sources for GLSL 330 and WGSL
+are in `assets/Shaders/`; generated game projects copy them to
+`Assets/Shaders/`. The engine build reads its local shader sources, and
+generated game builds read theirs from `Assets/Shaders/`; editing shader files
+requires rebuilding because runtime hot reload is not enabled.
 
 The WGPU sample (`examples/wgpu`, ~200 lines) is gameplay only: player
 controller, sprite animation, collision listener, camera follow and debug

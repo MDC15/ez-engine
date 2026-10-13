@@ -16,7 +16,7 @@ src/scripts/player.zig  # MonoBehaviour Player (WASD/arrows + animation)
 src/scripts/pickup.zig  # tag Collectible + PickupListener (nhặt đồ)
 Scenes/editor_scene.json  # Scene: vị trí + kích thước mọi object
 project.json          # startup_scene phải khớp scene main nạp
-Assets/               # textures
+Assets/               # textures and Shaders/
 ```
 
 ## Where to go next
@@ -28,5 +28,8 @@ Assets/               # textures
   `src/scripts/`, rồi `Script.init(&game, &behavior)` +
   `register(&game.scheduler, "Name")` trong `main.zig` (xem
   `player.zig`). Cần `onStart` thì dùng `initWithStart`.
-- Put textures in `Assets/`, scene data in `Scenes/` (`ez_engine.Scene`
+- Put textures and shaders in `Assets/`, scene data in `Scenes/` (`ez_engine.Scene`
   format, version 1; sample at `Scenes/editor_scene.json`). Project metadata is in `project.json`.
+- Configure post-processing in code through `game.post_process`: `grayscale`
+  and `vignette` accept `0...1`, while `exposure` accepts `0...8`. Shaders are
+  in `Assets/Shaders/`; edit them and rebuild to apply changes.

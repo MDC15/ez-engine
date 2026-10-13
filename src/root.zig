@@ -20,6 +20,7 @@ pub const SpriteAnimation = @import("gfx/sprite_animation.zig");
 pub const Collision2D = @import("physics/collision2d.zig");
 pub const Physics2D = @import("physics/physics2d.zig");
 pub const Camera2D = @import("gfx/camera.zig").Camera2D;
+pub const PostProcess = @import("gfx/post_process.zig");
 pub const CameraFollow2D = @import("gfx/camera_follow.zig");
 pub const Renderer = @import("gfx/renderer.zig");
 pub const Platform = @import("ez_platform");
@@ -70,6 +71,7 @@ test {
     _ = @import("audio/audio.zig");
     _ = @import("gfx/renderer.zig");
     _ = @import("gfx/camera.zig");
+    _ = @import("gfx/post_process.zig");
     _ = @import("gfx/camera_follow.zig");
     _ = @import("gfx/render_world.zig");
     _ = @import("gfx/sprite_animation.zig");

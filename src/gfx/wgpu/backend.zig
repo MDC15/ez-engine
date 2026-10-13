@@ -29,6 +29,13 @@ const GpuTexture = struct {
     }
 };
 
+const PostProcessUniforms = extern struct {
+    grayscale: f32,
+    vignette: f32,
+    exposure: f32,
+    padding: f32 = 0,
+};
+
 pub const SpriteBackend = struct {
     allocator: std.mem.Allocator,
     graphics: *zgpu.GraphicsContext,
@@ -36,6 +43,13 @@ pub const SpriteBackend = struct {
     pipeline: wgpu.RenderPipeline,
     pipeline_layout: wgpu.PipelineLayout,
     texture_layout: wgpu.BindGroupLayout,
+    post_process_pipeline: wgpu.RenderPipeline,
+    post_process_layout: wgpu.BindGroupLayout,
+    post_process_sampler: wgpu.Sampler,
+    post_process_uniform_buffer: wgpu.Buffer,
+    post_process_bind_group: ?wgpu.BindGroup = null,
+    scene_texture: ?wgpu.Texture = null,
+    scene_texture_view: ?wgpu.TextureView = null,
     sampler: wgpu.Sampler,
     vertex_buffer: wgpu.Buffer,
     vertex_capacity: usize = 4096,
@@ -53,32 +67,9 @@ pub const SpriteBackend = struct {
         .deinit = deinitImpl,
     };
 
-    const sprite_shader =
-        \\struct VertexInput {
-        \\    @location(0) position: vec2<f32>,
-        \\    @location(1) uv: vec2<f32>,
-        \\    @location(2) tint: vec4<f32>,
-        \\};
-        \\struct VertexOutput {
-        \\    @builtin(position) position: vec4<f32>,
-        \\    @location(0) uv: vec2<f32>,
-        \\    @location(1) tint: vec4<f32>,
-        \\};
-        \\@vertex
-        \\fn vs_main(input: VertexInput) -> VertexOutput {
-        \\    var output: VertexOutput;
-        \\    output.position = vec4<f32>(input.position, 0.0, 1.0);
-        \\    output.uv = input.uv;
-        \\    output.tint = input.tint;
-        \\    return output;
-        \\}
-        \\@group(0) @binding(0) var sprite_texture: texture_2d<f32>;
-        \\@group(0) @binding(1) var sprite_sampler: sampler;
-        \\@fragment
-        \\fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-        \\    return textureSample(sprite_texture, sprite_sampler, input.uv) * input.tint;
-        \\}
-    ;
+    const shader_sources = @import("shader_sources");
+    const sprite_shader = shader_sources.wgpu_sprite;
+    const post_process_shader = shader_sources.wgpu_post_process;
 
     /// Creates the pipeline, sampler and vertex buffer. Owns all GPU objects;
     /// release with `deinit`.
@@ -127,7 +118,7 @@ pub const SpriteBackend = struct {
             .alpha = .{ .src_factor = .one, .dst_factor = .one_minus_src_alpha },
         };
         const color_targets = [_]wgpu.ColorTargetState{.{
-            .format = graphics.swapchain_descriptor.format,
+            .format = .rgba8_unorm,
             .blend = &blend,
         }};
         const fragment = wgpu.FragmentState{
@@ -148,6 +139,68 @@ pub const SpriteBackend = struct {
             .fragment = &fragment,
         });
         errdefer pipeline.release();
+
+        const post_process_layout_entries = [_]wgpu.BindGroupLayoutEntry{
+            .{ .binding = 0, .visibility = .{ .fragment = true }, .texture = .{} },
+            .{ .binding = 1, .visibility = .{ .fragment = true }, .sampler = .{ .binding_type = .filtering } },
+            .{ .binding = 2, .visibility = .{ .fragment = true }, .buffer = .{
+                .binding_type = .uniform,
+                .min_binding_size = @sizeOf(PostProcessUniforms),
+            } },
+        };
+        const post_process_layout = graphics.device.createBindGroupLayout(.{
+            .entry_count = post_process_layout_entries.len,
+            .entries = &post_process_layout_entries,
+        });
+        errdefer post_process_layout.release();
+        const post_process_layouts = [_]wgpu.BindGroupLayout{post_process_layout};
+        const post_process_pipeline_layout = graphics.device.createPipelineLayout(.{
+            .bind_group_layout_count = post_process_layouts.len,
+            .bind_group_layouts = &post_process_layouts,
+        });
+        errdefer post_process_pipeline_layout.release();
+        var post_process_wgsl_descriptor = wgpu.ShaderModuleWGSLDescriptor{
+            .chain = .{ .next = null, .struct_type = .shader_module_wgsl_descriptor },
+            .code = post_process_shader,
+        };
+        const post_process_shader_module = graphics.device.createShaderModule(.{
+            .label = "ez-engine-post-process-shader",
+            .next_in_chain = @ptrCast(&post_process_wgsl_descriptor),
+        });
+        defer post_process_shader_module.release();
+        const post_process_targets = [_]wgpu.ColorTargetState{.{
+            .format = graphics.swapchain_descriptor.format,
+        }};
+        const post_process_fragment = wgpu.FragmentState{
+            .module = post_process_shader_module,
+            .entry_point = "fs_main",
+            .target_count = post_process_targets.len,
+            .targets = &post_process_targets,
+        };
+        const post_process_pipeline = graphics.device.createRenderPipeline(.{
+            .label = "ez-engine-post-process-pipeline",
+            .layout = post_process_pipeline_layout,
+            .vertex = .{
+                .module = post_process_shader_module,
+                .entry_point = "vs_main",
+            },
+            .fragment = &post_process_fragment,
+        });
+        errdefer post_process_pipeline.release();
+
+        const post_process_sampler = graphics.device.createSampler(.{
+            .mag_filter = .linear,
+            .min_filter = .linear,
+            .mipmap_filter = .nearest,
+        });
+        errdefer post_process_sampler.release();
+        const post_process_uniform_buffer = graphics.device.createBuffer(.{
+            .label = "ez-engine-post-process-settings",
+            .usage = .{ .uniform = true, .copy_dst = true },
+            .size = @sizeOf(PostProcessUniforms),
+        });
+        errdefer post_process_uniform_buffer.release();
+
         const sampler = graphics.device.createSampler(.{
             .mag_filter = .nearest,
             .min_filter = .nearest,
@@ -166,6 +219,10 @@ pub const SpriteBackend = struct {
             .pipeline = pipeline,
             .pipeline_layout = pipeline_layout,
             .texture_layout = texture_layout,
+            .post_process_pipeline = post_process_pipeline,
+            .post_process_layout = post_process_layout,
+            .post_process_sampler = post_process_sampler,
+            .post_process_uniform_buffer = post_process_uniform_buffer,
             .sampler = sampler,
             .vertex_buffer = vertex_buffer,
         };
@@ -182,6 +239,39 @@ pub const SpriteBackend = struct {
     fn resizeImpl(context: *anyopaque, extent: ez_engine.Renderer.Extent2D) anyerror!void {
         if (extent.width == 0 or extent.height == 0) return error.InvalidExtent;
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
+        const scene_texture = self.graphics.device.createTexture(.{
+            .label = "ez-engine-post-process-scene",
+            .usage = .{ .render_attachment = true, .texture_binding = true },
+            .size = .{ .width = extent.width, .height = extent.height },
+            .format = .rgba8_unorm,
+        });
+        errdefer scene_texture.release();
+        const scene_texture_view = scene_texture.createView(.{});
+        errdefer scene_texture_view.release();
+        const bind_group_entries = [_]wgpu.BindGroupEntry{
+            .{ .binding = 0, .texture_view = scene_texture_view, .size = 0 },
+            .{ .binding = 1, .sampler = self.post_process_sampler, .size = 0 },
+            .{
+                .binding = 2,
+                .buffer = self.post_process_uniform_buffer,
+                .size = @sizeOf(PostProcessUniforms),
+            },
+        };
+        const post_process_bind_group = self.graphics.device.createBindGroup(.{
+            .layout = self.post_process_layout,
+            .entry_count = bind_group_entries.len,
+            .entries = &bind_group_entries,
+        });
+        errdefer post_process_bind_group.release();
+        if (self.post_process_bind_group) |old| old.release();
+        if (self.scene_texture_view) |old| old.release();
+        if (self.scene_texture) |old| {
+            old.destroy();
+            old.release();
+        }
+        self.scene_texture = scene_texture;
+        self.scene_texture_view = scene_texture_view;
+        self.post_process_bind_group = post_process_bind_group;
         self.extent = extent;
     }
 
@@ -294,6 +384,7 @@ pub const SpriteBackend = struct {
 
     fn renderImpl(context: *anyopaque, world: *const ez_engine.RenderWorld) anyerror!void {
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
+        try world.post_process.validate();
         try self.evictReleasedTextures();
         if (self.extent.width == 0 or self.extent.height == 0 or
             self.graphics.swapchain_descriptor.width == 0 or self.graphics.swapchain_descriptor.height == 0)
@@ -308,38 +399,60 @@ pub const SpriteBackend = struct {
         if (self.vertices.items.len > 0) {
             self.graphics.queue.writeBuffer(self.vertex_buffer, 0, SpriteVertex, self.vertices.items);
         }
+        const settings: PostProcessUniforms = .{
+            .grayscale = world.post_process.grayscale,
+            .vignette = world.post_process.vignette,
+            .exposure = world.post_process.exposure,
+        };
+        self.graphics.queue.writeBuffer(self.post_process_uniform_buffer, 0, PostProcessUniforms, &.{settings});
 
         const back_buffer = self.graphics.swapchain.getCurrentTextureView();
         defer back_buffer.release();
+        const scene_texture_view = self.scene_texture_view orelse return error.RenderTargetNotInitialized;
         const encoder = self.graphics.device.createCommandEncoder(null);
         defer encoder.release();
-        const color_attachments = [_]wgpu.RenderPassColorAttachment{.{
-            .view = back_buffer,
+        const scene_attachments = [_]wgpu.RenderPassColorAttachment{.{
+            .view = scene_texture_view,
             .load_op = .clear,
             .store_op = .store,
             .clear_value = .{ .r = 0.035, .g = 0.055, .b = 0.09, .a = 1.0 },
         }};
-        const pass = encoder.beginRenderPass(.{
-            .color_attachment_count = color_attachments.len,
-            .color_attachments = &color_attachments,
+        const scene_pass = encoder.beginRenderPass(.{
+            .color_attachment_count = scene_attachments.len,
+            .color_attachments = &scene_attachments,
         });
-        pass.setPipeline(self.pipeline);
+        scene_pass.setPipeline(self.pipeline);
         if (self.vertices.items.len > 0) {
-            pass.setVertexBuffer(0, self.vertex_buffer, 0, self.vertices.items.len * @sizeOf(SpriteVertex));
+            scene_pass.setVertexBuffer(0, self.vertex_buffer, 0, self.vertices.items.len * @sizeOf(SpriteVertex));
             var sprite_first: usize = 0;
             var batches = world.batches();
             while (batches.next()) |batch| {
                 const key = (@as(u64, batch.texture.generation) << 32) | batch.texture.index;
                 const texture = self.gpu_textures.get(key) orelse return error.InvalidTextureHandle;
-                pass.setBindGroup(0, texture.bind_group, null);
+                scene_pass.setBindGroup(0, texture.bind_group, null);
                 const first_vertex: u32 = @intCast(sprite_first * 6);
                 const vertex_count: u32 = @intCast(batch.count * 6);
-                pass.draw(vertex_count, 1, first_vertex, 0);
+                scene_pass.draw(vertex_count, 1, first_vertex, 0);
                 sprite_first += batch.count;
             }
         }
-        pass.end();
-        pass.release();
+        scene_pass.end();
+        scene_pass.release();
+        const output_attachments = [_]wgpu.RenderPassColorAttachment{.{
+            .view = back_buffer,
+            .load_op = .clear,
+            .store_op = .store,
+            .clear_value = .{ .r = 0, .g = 0, .b = 0, .a = 1 },
+        }};
+        const post_process_pass = encoder.beginRenderPass(.{
+            .color_attachment_count = output_attachments.len,
+            .color_attachments = &output_attachments,
+        });
+        post_process_pass.setPipeline(self.post_process_pipeline);
+        post_process_pass.setBindGroup(0, self.post_process_bind_group orelse return error.RenderTargetNotInitialized, null);
+        post_process_pass.draw(3, 1, 0, 0);
+        post_process_pass.end();
+        post_process_pass.release();
         const command_buffer = encoder.finish(null);
         defer command_buffer.release();
         self.graphics.queue.submit(&.{command_buffer});
@@ -373,6 +486,16 @@ pub const SpriteBackend = struct {
         self.pipeline.release();
         self.pipeline_layout.release();
         self.texture_layout.release();
+        self.post_process_pipeline.release();
+        self.post_process_layout.release();
+        self.post_process_sampler.release();
+        self.post_process_uniform_buffer.release();
+        if (self.post_process_bind_group) |bind_group| bind_group.release();
+        if (self.scene_texture_view) |view| view.release();
+        if (self.scene_texture) |texture| {
+            texture.destroy();
+            texture.release();
+        }
         self.sampler.release();
     }
 };
