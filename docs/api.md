@@ -105,6 +105,10 @@ details; consumers only import `ez_engine`.
 - `Audio.init(allocator, channels)` / `initConfigured(..., rate)` (default
   48000 Hz, no resampling); `play(clip, volume) !voice`,
   `stop(voice)`, `mix(out: []f32)`; `decodeWav(allocator, bytes)`.
+  `Audio.resample(allocator, clip, target_rate) !OwnedClip` (offline linear
+  interpolation — the documented fix for `error.SampleRateMismatch`);
+  `Audio.Device` vtable (`write(frames)`, `deinit`) with headless
+  `Audio.NullDevice` for tests. `AudioClip` is the root-exported clip type.
 
 ## Input, platform, scene
 

@@ -30,6 +30,7 @@ pub const InputBinding = @import("ez_input").Binding;
 pub const Key = @import("ez_input").Key;
 pub const MouseButton = @import("ez_input").MouseButton;
 pub const Audio = @import("audio/audio.zig").Audio;
+pub const AudioClip = @import("audio/audio.zig").Clip;
 pub const Assets = @import("asset/manager.zig").Manager;
 pub const Game = @import("game.zig").Game;
 pub const Time = @import("core/time.zig");

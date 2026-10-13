@@ -169,6 +169,85 @@ pub const Audio = struct {
         }
         for (output) |*sample| sample.* = std.math.clamp(sample.*, -1, 1);
     }
+
+    /// Linear-interpolation resampler for offline asset preparation.
+    /// Keeps the channel count; output frames = ceil(in * target / source).
+    /// Use this to convert a clip to the device rate before `play`
+    /// (the realtime `mix` path never resamples).
+    pub fn resample(allocator: std.mem.Allocator, clip: Clip, target_rate: u32) !OwnedClip {
+        if (target_rate == 0 or clip.sample_rate == 0) return error.InvalidSampleRate;
+        if (clip.channels == 0 or clip.channels > 2) return error.InvalidClip;
+        if (clip.samples.len == 0 or clip.samples.len % clip.channels != 0) return error.InvalidClip;
+        if (target_rate == clip.sample_rate) {
+            const copy = try allocator.dupe(f32, clip.samples);
+            return .{ .clip = .{ .sample_rate = target_rate, .channels = clip.channels, .samples = copy }, .samples = copy };
+        }
+        const in_frames = clip.samples.len / clip.channels;
+        const out_frames = (in_frames * target_rate + clip.sample_rate - 1) / clip.sample_rate;
+        if (out_frames == 0) return error.InvalidClip;
+        const out = try allocator.alloc(f32, out_frames * clip.channels);
+        errdefer allocator.free(out);
+        for (0..out_frames) |frame| {
+            const src_pos = @as(f64, @floatFromInt(frame)) * @as(f64, @floatFromInt(clip.sample_rate)) /
+                @as(f64, @floatFromInt(target_rate));
+            const src0: usize = @min(@as(usize, @intFromFloat(@floor(src_pos))), in_frames - 1);
+            const src1: usize = @min(src0 + 1, in_frames - 1);
+            const frac: f32 = @floatCast(@min(@max(src_pos - @floor(src_pos), 0), 1));
+            for (0..clip.channels) |ch| {
+                const a = clip.samples[src0 * clip.channels + ch];
+                const b = clip.samples[src1 * clip.channels + ch];
+                out[frame * clip.channels + ch] = a * (1 - frac) + b * frac;
+            }
+        }
+        return .{ .clip = .{ .sample_rate = target_rate, .channels = clip.channels, .samples = out }, .samples = out };
+    }
+
+    pub const DeviceVTable = struct {
+        write: *const fn (context: *anyopaque, frames: u32) anyerror!void,
+        deinit: *const fn (context: *anyopaque) void,
+    };
+
+    /// Platform audio sink: pulls `frames` of mixer output per `write`.
+    /// Real drivers (PulseAudio/ALSA/WASAPI) implement this vtable;
+    /// headless/tests use `NullDevice`.
+    pub const Device = struct {
+        context: *anyopaque,
+        vtable: *const DeviceVTable,
+
+        pub fn write(self: Device, frames: u32) !void {
+            return self.vtable.write(self.context, frames);
+        }
+
+        pub fn deinit(self: Device) void {
+            self.vtable.deinit(self.context);
+        }
+    };
+
+    /// Discarding device for tests/headless: runs `mix()` and drops output.
+    pub const NullDevice = struct {
+        audio: *Audio,
+
+        const vtable: DeviceVTable = .{ .write = writeImpl, .deinit = deinitImpl };
+
+        pub fn device(self: *NullDevice) Device {
+            return .{ .context = self, .vtable = &vtable };
+        }
+
+        fn writeImpl(context: *anyopaque, frames: u32) !void {
+            const self: *NullDevice = @ptrCast(@alignCast(context));
+            var buffer: [512 * 2]f32 = undefined;
+            const channels: usize = self.audio.output_channels;
+            var remaining: usize = frames;
+            while (remaining > 0) {
+                const chunk: usize = @min(remaining, 512);
+                const slice = buffer[0 .. chunk * channels];
+                try self.audio.mix(slice);
+                remaining -= chunk;
+            }
+        }
+
+        fn deinitImpl(_: *anyopaque) void {}
+    };
 };
 
 test "software mixer sums voices and clamps output" {

@@ -7,6 +7,9 @@
 - Scene→runtime spawn pipeline: `ez_engine.SceneSpawn` (`SpawnTextures`,
   `spawnObject`, `spawnDocument`) maps scene kinds to base components;
   the project template uses it and only adds game markers on top.
+- Audio asset path: `Audio.resample` (offline linear resampler) plus the
+  `Audio.Device` vtable and headless `Audio.NullDevice`; clip type
+  exported as `ez_engine.AudioClip. Real OS drivers still future work.
 - Zig-native scripting: `ez_engine.Script` (`onUpdate`, optional `onStart`
   via `initWithStart`, one-line `register`) plus built-in `Mover2D`.
 - Desktop `App` helper (`ez_app` module): window + graphics + game + backend
