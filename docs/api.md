@@ -117,6 +117,15 @@ details; consumers only import `ez_engine`.
   interpolation — the documented fix for `error.SampleRateMismatch`);
   `Audio.Device` vtable (`write(frames)`, `deinit`) with headless
   `Audio.NullDevice` for tests. `AudioClip` is the root-exported clip type.
+- `Audio.PulseDevice.init(audio, app, stream, server) !PulseDevice` (Linux;
+  runtime-loaded `libpulse-simple`, no dev package or link needed; `server`
+  null selects the desktop default). Pump once per rendered frame with
+  frames matching consumed simulation time:
+  `tick(dt)` then `device.write(@intFromFloat(48000 * dt))`.
+  Errors: `AudioLibraryMissing` (no lib), `NoAudioServer` (no daemon),
+  `PulseWriteFailed` (mid-stream). Recipe on any error: log once, stop
+  pumping, the game continues silent. Destroy the device before
+  `Game.audio`; borrowed `*Audio`/names must outlive it.
 
 ## Input, platform, scene
 

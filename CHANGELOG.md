@@ -4,6 +4,9 @@
 
 ### Added
 
+- OS audio output: `Audio.PulseDevice`, a drop-in `Audio.Device` driving
+  PulseAudio (runtime-loaded `libpulse-simple`, float32 at the mixer rate,
+  manual per-frame pump, clean silent fallback when no server is present).
 - Packed atlas + named animation clips: `ez_engine.Atlas` (versioned JSON
   with named frames, per-frame durations/offsets), asset-manager caching
   (`loadAtlasFile`/`getAtlas`/`releaseAtlas`), `AtlasPlayer` component with
