@@ -4,6 +4,10 @@ const RenderWorld = @import("render_world.zig").RenderWorld;
 pub const Extent2D = struct { width: u32, height: u32 };
 pub const BackendKind = enum { headless };
 
+/// Offscreen resolution for the scene pass. A fixed override lets a small
+/// window render sharp (e.g. 1920x1080) and downscale on present; `null`
+/// follows the window/framebuffer size (current default behavior).
+
 pub const Backend = struct {
     context: *anyopaque,
     vtable: *const VTable,
@@ -31,6 +35,10 @@ pub const Backend = struct {
         self.vtable.deinit(self.context);
     }
 };
+
+pub fn resolveRenderExtent(window: Extent2D, override: ?Extent2D) Extent2D {
+    return override orelse window;
+}
 
 /// Useful for headless/server tests. It validates render submission while
 /// doing no GPU work; it is not a rendering backend.
@@ -78,4 +86,15 @@ test "headless backend accepts render world and tracks submissions" {
     defer world.deinit();
     try backend_instance.render(&world);
     try std.testing.expectEqual(@as(u64, 1), stats.submitted_frames);
+}
+
+test "render extent override decouples offscreen resolution from window" {
+    const window: Extent2D = .{ .width = 960, .height = 540 };
+    const followed = resolveRenderExtent(window, null);
+    try std.testing.expectEqual(window.width, followed.width);
+    try std.testing.expectEqual(window.height, followed.height);
+    const full_hd: Extent2D = .{ .width = 1920, .height = 1080 };
+    const overridden = resolveRenderExtent(window, full_hd);
+    try std.testing.expectEqual(@as(u32, 1920), overridden.width);
+    try std.testing.expectEqual(@as(u32, 1080), overridden.height);
 }

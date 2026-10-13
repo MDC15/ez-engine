@@ -57,6 +57,8 @@ pub const SpriteBackend = struct {
     gpu_textures: std.AutoHashMapUnmanaged(u64, GpuTexture) = .empty,
     retired_gpu_textures: std.ArrayListUnmanaged(u64) = .empty,
     extent: ez_engine.Renderer.Extent2D = .{ .width = 0, .height = 0 },
+    /// Fixed offscreen render resolution; `null` follows the window.
+    render_extent: ?ez_engine.Renderer.Extent2D = null,
     pending_work: bool = false,
     completion: ?wgpu.QueueWorkDoneStatus = null,
 
@@ -239,10 +241,11 @@ pub const SpriteBackend = struct {
     fn resizeImpl(context: *anyopaque, extent: ez_engine.Renderer.Extent2D) anyerror!void {
         if (extent.width == 0 or extent.height == 0) return error.InvalidExtent;
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
+        const render_size = ez_engine.Renderer.resolveRenderExtent(extent, self.render_extent);
         const scene_texture = self.graphics.device.createTexture(.{
             .label = "ez-engine-post-process-scene",
             .usage = .{ .render_attachment = true, .texture_binding = true },
-            .size = .{ .width = extent.width, .height = extent.height },
+            .size = .{ .width = render_size.width, .height = render_size.height },
             .format = .rgba8_unorm,
         });
         errdefer scene_texture.release();

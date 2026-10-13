@@ -43,6 +43,8 @@ pub const SpriteBackend = struct {
     gl_textures: std.AutoHashMapUnmanaged(u64, c.GLuint) = .empty,
     retired_gl_textures: std.ArrayListUnmanaged(u64) = .empty,
     extent: ez_engine.Renderer.Extent2D = .{ .width = 0, .height = 0 },
+    /// Fixed offscreen render resolution; `null` follows the window.
+    render_extent: ?ez_engine.Renderer.Extent2D = null,
 
     const vtable = ez_engine.Renderer.Backend.VTable{
         .resize = resizeImpl,
@@ -206,6 +208,7 @@ pub const SpriteBackend = struct {
     fn resizeImpl(context: *anyopaque, extent: ez_engine.Renderer.Extent2D) anyerror!void {
         if (extent.width == 0 or extent.height == 0) return error.InvalidExtent;
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
+        const render_size = ez_engine.Renderer.resolveRenderExtent(extent, self.render_extent);
         c.glBindTexture(c.GL_TEXTURE_2D, self.scene_texture);
         c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
         c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
@@ -215,8 +218,8 @@ pub const SpriteBackend = struct {
             c.GL_TEXTURE_2D,
             0,
             c.GL_RGBA8,
-            @intCast(extent.width),
-            @intCast(extent.height),
+            @intCast(render_size.width),
+            @intCast(render_size.height),
             0,
             c.GL_RGBA,
             c.GL_UNSIGNED_BYTE,
@@ -355,7 +358,8 @@ pub const SpriteBackend = struct {
             );
         }
 
-        c.glViewport(0, 0, @intCast(self.extent.width), @intCast(self.extent.height));
+        const render_size = ez_engine.Renderer.resolveRenderExtent(self.extent, self.render_extent);
+        c.glViewport(0, 0, @intCast(render_size.width), @intCast(render_size.height));
         c.glBindFramebuffer(c.GL_FRAMEBUFFER, self.framebuffer);
         c.glClearColor(0.035, 0.055, 0.09, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);

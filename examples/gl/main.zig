@@ -94,9 +94,11 @@ const DebugReporter = struct {
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
     var app: App = undefined;
-    try app.init(allocator, "ez-engine | textured 2D sprites", 1280, 720, false);
+    try app.init(allocator, "ez-engine | textured 2D sprites", 960, 540, false);
     defer app.deinit();
     var game = &app.game;
+    // Small window, sharp image: render offscreen at 1080p, downscale on present.
+    app.backend.render_extent = .{ .width = 1920, .height = 1080 };
     const player_sheet = try game.assets.loadTextureFile(init.io, "assets/player_sheet.png", 16 * 1024 * 1024);
     const decoration_texture = try game.assets.loadTextureFile(init.io, "assets/sprite.png", 16 * 1024 * 1024);
     const sprite = try game.world.create();
@@ -160,5 +162,8 @@ pub fn main(init: std.process.Init) !void {
     var debug_reporter = DebugReporter{ .game = game };
     _ = try game.scheduler.addSystem("Debug stats", &debug_reporter, DebugReporter.update);
     game.logger.writeCategory(.info, "sample", "Press F3 to toggle runtime statistics");
+    // GL vsync (swapInterval) is ignored on some drivers/WSL, so cap in
+    // software: sleep the remainder of each 1/60s frame in Game.run.
+    game.setTargetFps(60);
     try app.run(init.io);
 }
