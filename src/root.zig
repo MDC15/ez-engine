@@ -74,6 +74,7 @@ test {
     _ = @import("asset/manager.zig");
     _ = @import("asset/texture_loader.zig");
     _ = @import("audio/audio.zig");
+    _ = @import("audio/pulse.zig");
     _ = @import("gfx/renderer.zig");
     _ = @import("gfx/camera.zig");
     _ = @import("gfx/post_process.zig");
