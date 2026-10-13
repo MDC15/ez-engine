@@ -202,5 +202,4 @@ recommended pattern.
   headless `NullDevice`, but no OS audio driver yet.
 - No reference-image test for the WGPU sample.
 - CI runs `zig build`, `zig build test`, `zig fmt --check` (see
-  `.github/workflows/ci.yml`); license is MIT (`LICENSE`); version is
-  `0.1.0-dev` (not tagged yet).
+  `.github/workflows/ci.yml`); license is MIT (`LICENSE`); version `0.1.0`.

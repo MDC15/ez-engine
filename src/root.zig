@@ -1,7 +1,9 @@
 //! A modular, data-oriented game library. Gameplay and ECS modules do not
 //! depend on a graphics backend.
 
-pub const version: []const u8 = "0.1.0-dev";
+const std = @import("std");
+
+pub const version: []const u8 = "0.1.0";
 
 pub const World = @import("ecs/world.zig").World;
 pub const Entity = @import("ecs/entity.zig").Entity;
@@ -85,4 +87,8 @@ test {
     _ = @import("ez_platform");
     _ = @import("gfx/texture.zig");
     _ = @import("game.zig");
+}
+
+test "library version is stamped for release" {
+    try std.testing.expectEqualStrings("0.1.0", version);
 }

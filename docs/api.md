@@ -1,4 +1,4 @@
-# Public API (`ez_engine` `0.1.0-dev`)
+# Public API (`ez_engine` `0.1.0`)
 
 Source of truth: `src/root.zig`. Full signatures: `zig build docs`.
 Internal import names (`ez_platform`, `ez_input`, `ez_zigimg`) are build
@@ -165,5 +165,5 @@ details; consumers only import `ez_engine`.
 
 ## Stability
 
-Version is `0.1.0-dev`: anything may change before `0.1.0`. Breaking
-changes are recorded in `CHANGELOG.md`.
+Version is `0.1.0`. Breaking changes after this release are recorded in
+`CHANGELOG.md` under `Unreleased`.

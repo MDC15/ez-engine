@@ -1,6 +1,6 @@
 # Tình trạng dự án (2026-10-11)
 
-`ez-engine` (`ez_engine`, `0.1.0-dev`) là framework game 2D viết bằng Zig
+`ez-engine` (`ez_engine`, `0.1.0`) là framework game 2D viết bằng Zig
 0.16.0: ECS archetype-based + đường render sprite (extract → cull → batch →
 backend). Runtime tách gameplay khỏi GPU; sample WGPU dùng GLFW + Dawn.
 
@@ -35,7 +35,7 @@ CHANGELOG.
 ## Còn thiếu để thành lib hoàn chỉnh
 
 - [ ] **P0**: `LICENSE` + `CONTRIBUTING.md`; CI (`zig build`, `test`,
-  `fmt --check`); tag version (hiện `0.1.0-dev`, chưa tag).
+  `fmt --check`); version `0.1.0` đã tag.
 - [ ] **P1**: test golden-image cho WGPU; audio-device backend; kiểm chứng
   quy tắc component lifetime (đã ghi trong TODO); bảng tương thích mở rộng
   ngoài Linux x86_64.

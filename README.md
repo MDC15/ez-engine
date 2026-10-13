@@ -1,6 +1,6 @@
 # ez-engine
 
-Framework game 2D viết bằng Zig (`ez_engine`, `0.1.0-dev`), tập trung vào ECS
+Framework game 2D viết bằng Zig (`ez_engine`, `0.1.0`), tập trung vào ECS
 và đường render sprite. Runtime tách dữ liệu gameplay khỏi backend đồ họa:
 gameplay chạy trên ECS, mỗi frame extract sprite ra `RenderWorld` (dữ liệu CPU
 thuần), rồi backend vẽ lên GPU.
