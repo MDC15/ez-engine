@@ -76,6 +76,58 @@ details; consumers only import `ez_engine`.
 - `Camera2D{ center, viewport_size, zoom }` + `worldToNdc`;
   `CameraFollow2D.System.init(&camera_2d, target)` with
   `follow_speed` (`0` = snap) and `offset`.
+- Bitmap fonts (`Font`): `Assets.loadFontFile(io, json_path, texture_path,
+  max_bytes) !FontHandle` caches the JSON and shared texture; `getFont` and
+  `releaseFont` manage the font independently of its texture. Font JSON uses
+  version 1:
+
+  ```json
+  {
+    "version": 1,
+    "size_px": 8,
+    "line_height_px": 10,
+    "glyphs": [
+      { "ch": "A", "x": 0, "y": 0, "w": 4, "h": 6, "advance": 5 },
+      { "ch": " ", "x": 0, "y": 0, "w": 0, "h": 0, "advance": 3 }
+    ]
+  }
+  ```
+
+  `ch` is exactly one Unicode codepoint; `x`, `y`, `w`, `h`, `advance`, and
+  optional `offset: [x, y]` are pixel values. Regions must fit the texture;
+  advances and font metrics must be positive and finite. A zero-size region is
+  allowed only for U+0020. Missing or malformed text characters use U+FFFD,
+  then `?`, then a space advance, or a half-em skip.
+- `RenderComponents.Text{ font, content, len, size, tint, z_index, alignment }`
+  stores up to 256 UTF-8 bytes; `setText(bytes)` returns `error.TextTooLong`
+  without changing existing content when over capacity. `Font.TextSystem.init(&assets)`
+  creates ordinary sprite entities for glyphs; register
+  `Font.TextSystem.updateSystem` with its context after gameplay updates.
+  Supports left/center/right alignment against the widest line and
+  newline-separated lines. Glyph
+  entities carry `RenderComponents.GlyphOf{ parent }`; exclude that marker
+  from gameplay queries. Call `TextSystem.deinit()` before deinitializing the
+  world.
+
+  ```zig
+  const font = try game.assets.loadFontFile(
+      io,
+      "Assets/Fonts/ui.json",
+      "Assets/Fonts/ui.ztex",
+      4 * 1024 * 1024,
+  );
+  const label = try game.world.create();
+  try game.world.add(label, RenderComponents.Transform{
+      .position = .{ .x = -300, .y = 250 },
+  });
+  var text = RenderComponents.Text{ .font = font, .size = 24 };
+  try text.setText("Xin chào");
+  try game.world.add(label, text);
+
+  var text_system = Font.TextSystem.init(&game.assets);
+  defer text_system.deinit();
+  try game.scheduler.addSystem("Text", &text_system, Font.TextSystem.updateSystem);
+  ```
 
 ## Collision
 

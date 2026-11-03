@@ -4,6 +4,7 @@ const Vec3 = @import("../math/vec3.zig").Vec3;
 const Vec2 = @import("../math/vec2.zig").Vec2;
 const Vec4 = @import("../math/vec4.zig").Vec4;
 const Quat = @import("../math/quat.zig").Quat;
+const Entity = @import("../ecs/entity.zig").Entity;
 
 pub const Transform = struct {
     position: Vec3 = .zero,
@@ -131,6 +132,31 @@ pub const AtlasPlayer = struct {
     frame_index: u16 = 0,
     elapsed_seconds: f32 = 0,
     playing: bool = true,
+};
+
+pub const Align = enum { left, center, right };
+
+/// Bounded, plain-data text content rendered by `Font.TextSystem`.
+pub const Text = struct {
+    font: Handles.FontHandle,
+    content: [256]u8 = .{0} ** 256,
+    len: usize = 0,
+    size: f32 = 16,
+    tint: Vec4 = .one,
+    z_index: i32 = 0,
+    alignment: Align = .left,
+
+    pub fn setText(self: *Text, value: []const u8) error{TextTooLong}!void {
+        if (value.len > self.content.len) return error.TextTooLong;
+        @memset(&self.content, 0);
+        @memcpy(self.content[0..value.len], value);
+        self.len = value.len;
+    }
+};
+
+/// Marks an implementation-owned glyph sprite and its parent text entity.
+pub const GlyphOf = struct {
+    parent: Entity,
 };
 
 pub const Static = struct {};

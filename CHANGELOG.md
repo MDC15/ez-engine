@@ -4,6 +4,9 @@
 
 ### Added
 
+- Bitmap-font text rendering: versioned JSON font assets, UTF-8 fallback and
+  line layout, plus `Text`/`TextSystem` glyph sprites that use the existing
+  render pipeline.
 - OS audio output: `Audio.PulseDevice`, a drop-in `Audio.Device` driving
   PulseAudio (runtime-loaded `libpulse-simple`, float32 at the mixer rate,
   manual per-frame pump, clean silent fallback when no server is present).

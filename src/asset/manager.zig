@@ -2,6 +2,7 @@ const std = @import("std");
 const Handles = @import("../core/handle.zig");
 const TextureLoader = @import("texture_loader.zig");
 const AtlasModule = @import("../gfx/atlas.zig");
+const FontModule = @import("../gfx/font.zig");
 
 pub const AssetHandle = Handles.Handle(enum { asset });
 
@@ -90,6 +91,15 @@ fn releaseAtlasData(allocator: std.mem.Allocator, entry: *AtlasEntry) void {
     entry.atlas.deinit(allocator);
 }
 
+pub const FontEntry = struct {
+    texture: Handles.TextureHandle,
+    font: FontModule.OwnedFont,
+};
+
+fn releaseFontData(allocator: std.mem.Allocator, entry: *FontEntry) void {
+    entry.font.deinit(allocator);
+}
+
 /// File-backed binary asset cache. Repeated paths resolve to the same live
 /// handle; callers retain handles and explicitly release them when finished.
 pub const Manager = struct {
@@ -100,6 +110,8 @@ pub const Manager = struct {
     texture_paths: std.StringHashMapUnmanaged(Handles.TextureHandle) = .empty,
     atlases: Store(AtlasEntry, Handles.AtlasHandle, releaseAtlasData),
     atlas_paths: std.StringHashMapUnmanaged(Handles.AtlasHandle) = .empty,
+    fonts: Store(FontEntry, Handles.FontHandle, releaseFontData),
+    font_paths: std.StringHashMapUnmanaged(Handles.FontHandle) = .empty,
 
     pub fn init(allocator: std.mem.Allocator) Manager {
         return .{
@@ -107,10 +119,15 @@ pub const Manager = struct {
             .assets = Store(Asset, AssetHandle, releaseAsset).init(allocator),
             .textures = Store(TextureLoader.TextureData, Handles.TextureHandle, releaseTextureData).init(allocator),
             .atlases = Store(AtlasEntry, Handles.AtlasHandle, releaseAtlasData).init(allocator),
+            .fonts = Store(FontEntry, Handles.FontHandle, releaseFontData).init(allocator),
         };
     }
 
     pub fn deinit(self: *Manager) void {
+        var font_keys = self.font_paths.keyIterator();
+        while (font_keys.next()) |key| self.allocator.free(key.*);
+        self.font_paths.deinit(self.allocator);
+        self.fonts.deinit();
         var atlas_keys = self.atlas_paths.keyIterator();
         while (atlas_keys.next()) |key| self.allocator.free(key.*);
         self.atlas_paths.deinit(self.allocator);
@@ -206,6 +223,48 @@ pub const Manager = struct {
         }
     }
 
+    /// Loads a bitmap font JSON against a shared cached texture. Fonts are
+    /// cached by JSON path; releasing a font never releases its texture.
+    pub fn loadFontFile(self: *Manager, io: std.Io, json_path: []const u8, texture_path: []const u8, max_bytes: usize) !Handles.FontHandle {
+        if (self.font_paths.get(json_path)) |handle| {
+            if (self.fonts.get(handle) != null) return handle;
+            return error.AssetCacheCorrupt;
+        }
+
+        const texture_handle = try self.loadTextureFile(io, texture_path, max_bytes);
+        const texture_data = self.getTexture(texture_handle) orelse return error.AssetCacheCorrupt;
+        const asset_handle = try self.loadFile(io, json_path, max_bytes);
+        const asset = self.get(asset_handle) orelse return error.AssetCacheCorrupt;
+        try self.font_paths.ensureUnusedCapacity(self.allocator, 1);
+        const owned_path = try self.allocator.dupe(u8, json_path);
+        errdefer self.allocator.free(owned_path);
+        var font = try FontModule.load(self.allocator, asset.bytes, texture_data.width, texture_data.height);
+        errdefer font.deinit(self.allocator);
+        const handle = try self.fonts.insert(.{ .texture = texture_handle, .font = font });
+        self.font_paths.putAssumeCapacityNoClobber(owned_path, handle);
+        return handle;
+    }
+
+    pub fn getFont(self: *Manager, handle: Handles.FontHandle) ?*FontEntry {
+        return self.fonts.get(handle);
+    }
+
+    pub fn releaseFont(self: *Manager, handle: Handles.FontHandle) !void {
+        try self.fonts.remove(handle);
+        var found_path: ?[]const u8 = null;
+        var iter = self.font_paths.iterator();
+        while (iter.next()) |entry| {
+            if (entry.value_ptr.index == handle.index and entry.value_ptr.generation == handle.generation) {
+                found_path = entry.key_ptr.*;
+                break;
+            }
+        }
+        if (found_path) |path_key| {
+            _ = self.font_paths.remove(path_key);
+            self.allocator.free(@constCast(path_key));
+        }
+    }
+
     pub fn loadFile(self: *Manager, io: std.Io, path: []const u8, max_bytes: usize) !AssetHandle {
         if (self.paths.get(path)) |handle| {
             if (self.assets.get(handle) != null) return handle;
@@ -266,4 +325,20 @@ test "manager caches atlas by json path and keeps texture independent" {
     try std.testing.expect(manager.getAtlas(h1) == null);
     const tex = try manager.loadTextureFile(io, "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     try std.testing.expect(manager.getTexture(tex) != null);
+}
+
+test "manager caches fonts by json path and keeps texture independent" {
+    var threaded = std.Io.Threaded.init(std.testing.allocator, .{});
+    defer threaded.deinit();
+    const io = threaded.io();
+    var manager = Manager.init(std.testing.allocator);
+    defer manager.deinit();
+    const h1 = try manager.loadFontFile(io, "tests/fixtures/font_test.json", "tests/fixtures/font_test.ztex", 1024 * 1024);
+    const h2 = try manager.loadFontFile(io, "tests/fixtures/font_test.json", "tests/fixtures/font_test.ztex", 1024 * 1024);
+    try std.testing.expectEqual(h1.index, h2.index);
+    try std.testing.expect(manager.getFont(h1) != null);
+    const texture = manager.getFont(h1).?.texture;
+    try manager.releaseFont(h1);
+    try std.testing.expect(manager.getFont(h1) == null);
+    try std.testing.expect(manager.getTexture(texture) != null);
 }
