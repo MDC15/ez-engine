@@ -148,6 +148,25 @@ pub const SpriteBackend = struct {
         return .{ .context = self, .vtable = &vtable };
     }
 
+    pub fn readScenePixel(self: *SpriteBackend, x: u32, y: u32) ![4]u8 {
+        const extent = ez_engine.Renderer.resolveRenderExtent(self.extent, self.render_extent);
+        if (x >= extent.width or y >= extent.height) return error.PixelOutOfBounds;
+        try waitIdleImpl(self);
+        var pixel: [4]u8 = undefined;
+        c.glBindFramebuffer(c.GL_FRAMEBUFFER, self.framebuffer);
+        c.glReadPixels(
+            @intCast(x),
+            @intCast(extent.height - 1 - y),
+            1,
+            1,
+            c.GL_RGBA,
+            c.GL_UNSIGNED_BYTE,
+            @ptrCast(&pixel),
+        );
+        c.glBindFramebuffer(c.GL_FRAMEBUFFER, 0);
+        return pixel;
+    }
+
     fn glString(name: c.GLenum) []const u8 {
         const ptr = c.glGetString(name);
         if (ptr == null) return "unknown";

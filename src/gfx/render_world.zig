@@ -100,8 +100,21 @@ pub const RenderWorld = struct {
         const half_view = Vec2.scale(camera.viewport_size, 0.5 / camera.zoom);
         var visible: usize = 0;
         for (self.items.items) |item| {
-            const radius_x = @abs(item.sprite_size.x * item.scale.x) * 0.70710678;
-            const radius_y = @abs(item.sprite_size.y * item.scale.y) * 0.70710678;
+            const half_width = item.sprite_size.x * item.scale.x * 0.5;
+            const half_height = item.sprite_size.y * item.scale.y * 0.5;
+            const local_corners = [4]Vec3{
+                .{ .x = -half_width, .y = -half_height },
+                .{ .x = half_width, .y = -half_height },
+                .{ .x = half_width, .y = half_height },
+                .{ .x = -half_width, .y = half_height },
+            };
+            var radius_x: f32 = 0;
+            var radius_y: f32 = 0;
+            for (local_corners) |corner| {
+                const rotated = item.rotation.rotate(corner);
+                radius_x = @max(radius_x, @abs(rotated.x));
+                radius_y = @max(radius_y, @abs(rotated.y));
+            }
             const x = item.position.x - camera.center.x;
             const y = item.position.y - camera.center.y;
             if (@abs(x) > half_view.x + radius_x or @abs(y) > half_view.y + radius_y) continue;
@@ -144,4 +157,24 @@ test "2d sprites extract, cull and batch by painter layer and texture" {
     try std.testing.expectEqual(@as(i32, 0), batches.next().?.z_index);
     try std.testing.expectEqual(@as(i32, 1), batches.next().?.z_index);
     try std.testing.expect(batches.next() == null);
+}
+
+test "2d culling accounts for rotation of non-square sprites" {
+    var render_world = RenderWorld.init(std.testing.allocator);
+    defer render_world.deinit();
+    const rotation = Quat.fromAxisAngle(.{ .z = 1 }, std.math.pi / 4.0);
+    try render_world.add(.{
+        .position = .{ .y = 85 },
+        .rotation = rotation,
+        .sprite_size = .{ .x = 100, .y = 10 },
+    });
+    try render_world.add(.{
+        .position = .{ .y = 100 },
+        .rotation = rotation,
+        .sprite_size = .{ .x = 100, .y = 10 },
+    });
+
+    try render_world.cullSprites2D(.{ .viewport_size = .{ .x = 100, .y = 100 } });
+
+    try std.testing.expectEqual(@as(usize, 1), render_world.items.items.len);
 }

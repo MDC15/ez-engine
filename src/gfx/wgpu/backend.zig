@@ -238,13 +238,61 @@ pub const SpriteBackend = struct {
         return .{ .context = self, .vtable = &vtable };
     }
 
+    pub fn readScenePixel(self: *SpriteBackend, x: u32, y: u32) ![4]u8 {
+        const extent = ez_engine.Renderer.resolveRenderExtent(self.extent, self.render_extent);
+        if (x >= extent.width or y >= extent.height) return error.PixelOutOfBounds;
+        try waitIdleImpl(self);
+
+        const row_size = try std.math.mul(usize, extent.width, 4);
+        const bytes_per_row = std.mem.alignForward(usize, row_size, 256);
+        const buffer_size = try std.math.mul(usize, bytes_per_row, extent.height);
+        const buffer = self.graphics.device.createBuffer(.{
+            .label = "ez-engine-readback",
+            .usage = .{ .copy_dst = true, .map_read = true },
+            .size = @intCast(buffer_size),
+        });
+        defer buffer.release();
+
+        const encoder = self.graphics.device.createCommandEncoder(null);
+        defer encoder.release();
+        encoder.copyTextureToBuffer(
+            .{ .texture = self.scene_texture orelse return error.RenderTargetNotInitialized },
+            .{
+                .buffer = buffer,
+                .layout = .{
+                    .bytes_per_row = @intCast(bytes_per_row),
+                    .rows_per_image = extent.height,
+                },
+            },
+            .{ .width = extent.width, .height = extent.height },
+        );
+        const command_buffer = encoder.finish(null);
+        defer command_buffer.release();
+        self.graphics.queue.submit(&.{command_buffer});
+
+        var map_status: ?wgpu.BufferMapAsyncStatus = null;
+        buffer.mapAsync(.{ .read = true }, 0, buffer_size, onReadbackMapped, @ptrCast(&map_status));
+        while (map_status == null) self.graphics.device.tick();
+        if (map_status.? != .success) return error.ReadbackMapFailed;
+        defer buffer.unmap();
+
+        const mapped = buffer.getConstMappedRange(u8, 0, buffer_size) orelse return error.ReadbackMapFailed;
+        const offset = @as(usize, y) * bytes_per_row + @as(usize, x) * 4;
+        return mapped[offset..][0..4].*;
+    }
+
+    fn onReadbackMapped(status: wgpu.BufferMapAsyncStatus, userdata: ?*anyopaque) callconv(.c) void {
+        const result: *?wgpu.BufferMapAsyncStatus = @ptrCast(@alignCast(userdata.?));
+        result.* = status;
+    }
+
     fn resizeImpl(context: *anyopaque, extent: ez_engine.Renderer.Extent2D) anyerror!void {
         if (extent.width == 0 or extent.height == 0) return error.InvalidExtent;
         const self: *SpriteBackend = @ptrCast(@alignCast(context));
         const render_size = ez_engine.Renderer.resolveRenderExtent(extent, self.render_extent);
         const scene_texture = self.graphics.device.createTexture(.{
             .label = "ez-engine-post-process-scene",
-            .usage = .{ .render_attachment = true, .texture_binding = true },
+            .usage = .{ .render_attachment = true, .texture_binding = true, .copy_src = true },
             .size = .{ .width = render_size.width, .height = render_size.height },
             .format = .rgba8_unorm,
         });

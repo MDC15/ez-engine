@@ -71,6 +71,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     }) });
     test_step.dependOn(&b.addRunArtifact(editor_scene_tests).step);
+    const app_init_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("src/app/init_stages.zig"),
+        .target = target,
+        .optimize = optimize,
+    }) });
+    test_step.dependOn(&b.addRunArtifact(app_init_tests).step);
 
     const install_docs = b.addInstallDirectory(.{
         .source_dir = library.getEmittedDocs(),
@@ -214,6 +220,36 @@ pub fn build(b: *std.Build) void {
     const run_gl = b.step("gl-run", "Run the OpenGL sprite sample");
     run_gl.dependOn(&run_gl_command.step);
 
+    const gl_pixel_test_module = b.createModule(.{
+        .root_source_file = b.path("tests/gl_pixel_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    gl_pixel_test_module.addImport("ez_engine", game);
+    gl_pixel_test_module.addImport("gl_app", gl_app);
+    const gl_pixel_fixture = b.createModule(.{
+        .root_source_file = b.path("tests/render_pixel_fixture.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    gl_pixel_fixture.addImport("ez_engine", game);
+    gl_pixel_test_module.addImport("render_pixel_fixture.zig", gl_pixel_fixture);
+    const gl_pixel_tests = b.addTest(.{ .root_module = gl_pixel_test_module, .use_llvm = true });
+    gl_pixel_tests.root_module.linkLibrary(zglfw.artifact("glfw"));
+    gl_pixel_tests.root_module.linkSystemLibrary("GL", .{});
+    gl_pixel_tests.root_module.linkSystemLibrary("X11", .{});
+    const run_gl_pixel_tests = b.addRunArtifact(gl_pixel_tests);
+    if (b.graph.environ_map.get("DRI_PRIME") == null) run_gl_pixel_tests.setEnvironmentVariable("DRI_PRIME", "1");
+    if (b.graph.environ_map.get("WSL_DISTRO_NAME") != null) {
+        run_gl_pixel_tests.setEnvironmentVariable("XDG_SESSION_TYPE", "x11");
+        if (b.graph.environ_map.get("GALLIUM_DRIVER") == null) run_gl_pixel_tests.setEnvironmentVariable("GALLIUM_DRIVER", "d3d12");
+        if (b.graph.environ_map.get("MESA_D3D12_DEFAULT_ADAPTER_NAME") == null) {
+            run_gl_pixel_tests.setEnvironmentVariable("MESA_D3D12_DEFAULT_ADAPTER_NAME", "NVIDIA");
+        }
+    }
+    const gl_pixel_test_step = b.step("gl-render-test", "Run OpenGL pixel-level rendering regression");
+    gl_pixel_test_step.dependOn(&run_gl_pixel_tests.step);
+
     const wgpu_module = b.createModule(.{
         .root_source_file = b.path("examples/wgpu/main.zig"),
         .target = target,
@@ -247,4 +283,29 @@ pub fn build(b: *std.Build) void {
     }
     const run_wgpu = b.step("wgpu-run", "Run the WGPU sprite sample");
     run_wgpu.dependOn(&run_wgpu_command.step);
+
+    const wgpu_pixel_test_module = b.createModule(.{
+        .root_source_file = b.path("tests/wgpu_pixel_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    wgpu_pixel_test_module.addImport("ez_engine", game);
+    wgpu_pixel_test_module.addImport("ez_app", ez_app);
+    const wgpu_pixel_fixture = b.createModule(.{
+        .root_source_file = b.path("tests/render_pixel_fixture.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    wgpu_pixel_fixture.addImport("ez_engine", game);
+    wgpu_pixel_test_module.addImport("render_pixel_fixture.zig", wgpu_pixel_fixture);
+    const wgpu_pixel_tests = b.addTest(.{ .root_module = wgpu_pixel_test_module, .use_llvm = true });
+    wgpu_pixel_tests.root_module.linkLibrary(zglfw.artifact("glfw"));
+    wgpu_pixel_tests.root_module.linkLibrary(zgpu.artifact("zdawn"));
+    wgpu_pixel_tests.root_module.linkSystemLibrary("X11", .{});
+    wgpu_pixel_tests.root_module.addLibraryPath(dawn.path(""));
+    wgpu_pixel_tests.root_module.linkSystemLibrary("dawn", .{});
+    const run_wgpu_pixel_tests = b.addRunArtifact(wgpu_pixel_tests);
+    if (b.graph.environ_map.get("DRI_PRIME") == null) run_wgpu_pixel_tests.setEnvironmentVariable("DRI_PRIME", "1");
+    const wgpu_pixel_test_step = b.step("wgpu-render-test", "Run WGPU pixel-level rendering regression");
+    wgpu_pixel_test_step.dependOn(&run_wgpu_pixel_tests.step);
 }

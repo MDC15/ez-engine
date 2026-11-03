@@ -13,9 +13,14 @@ pub const TextureData = struct {
     }
 };
 
-/// Loads engine-owned "ZTEX" v1: magic, width, height, pixel format byte,
-/// three reserved bytes, followed by tightly packed 4-channel pixels.
-pub fn load(allocator: std.mem.Allocator, bytes: []const u8) !TextureData {
+const ZtexHeader = struct {
+    width: u32,
+    height: u32,
+    format: PixelFormat,
+    pixel_bytes: usize,
+};
+
+fn parseZtexHeader(bytes: []const u8) !ZtexHeader {
     if (bytes.len < 16 or !std.mem.eql(u8, bytes[0..4], "ZTEX")) return error.InvalidTexture;
     if (std.mem.readInt(u32, bytes[4..8], .little) != 1) return error.UnsupportedVersion;
     const width = std.mem.readInt(u32, bytes[8..12], .little);
@@ -29,22 +34,37 @@ pub fn load(allocator: std.mem.Allocator, bytes: []const u8) !TextureData {
     };
     const pixel_count = try std.math.mul(usize, width, height);
     const pixel_bytes = try std.math.mul(usize, pixel_count, 4);
-    if (bytes.len != 20 + pixel_bytes) return error.InvalidTexture;
+    const expected_bytes = try std.math.add(usize, 20, pixel_bytes);
+    if (bytes.len != expected_bytes) return error.InvalidTexture;
+    return .{ .width = width, .height = height, .format = format, .pixel_bytes = pixel_bytes };
+}
+
+/// Loads engine-owned "ZTEX" v1: magic, width, height, pixel format byte,
+/// three reserved bytes, followed by tightly packed 4-channel pixels.
+pub fn load(allocator: std.mem.Allocator, bytes: []const u8) !TextureData {
+    const header = try parseZtexHeader(bytes);
     const pixels = try allocator.dupe(u8, bytes[20..]);
-    return .{ .width = width, .height = height, .format = format, .pixels = pixels };
+    return .{
+        .width = header.width,
+        .height = header.height,
+        .format = header.format,
+        .pixels = pixels,
+    };
 }
 
 /// Loads either the engine's uncompressed ZTEX format or an 8-bit PNG.
 /// `max_decoded_bytes` also limits the expanded RGBA allocation for PNG input.
 pub fn loadAny(allocator: std.mem.Allocator, bytes: []const u8, max_decoded_bytes: usize) !TextureData {
     if (bytes.len >= 4 and std.mem.eql(u8, bytes[0..4], "ZTEX")) {
-        const texture = try load(allocator, bytes);
-        if (texture.pixels.len > max_decoded_bytes) {
-            var owned = texture;
-            owned.deinit(allocator);
-            return error.TextureTooLarge;
-        }
-        return texture;
+        const header = try parseZtexHeader(bytes);
+        if (header.pixel_bytes > max_decoded_bytes) return error.TextureTooLarge;
+        const pixels = try allocator.dupe(u8, bytes[20..]);
+        return .{
+            .width = header.width,
+            .height = header.height,
+            .format = header.format,
+            .pixels = pixels,
+        };
     }
 
     const png_signature = [_]u8{ 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a };
@@ -82,4 +102,28 @@ test "loads PNG data as bounded RGBA8 pixels" {
     try std.testing.expectEqual(PixelFormat.rgba8, texture.format);
     try std.testing.expectEqual(@as(usize, 4), texture.pixels.len);
     try std.testing.expectError(error.TextureTooLarge, loadAny(std.testing.allocator, bytes, 3));
+}
+
+test "ZTEX decoder checks dimensions, exact payload size and limits before allocation" {
+    var ztex: [24]u8 = @splat(0);
+    @memcpy(ztex[0..4], "ZTEX");
+    std.mem.writeInt(u32, ztex[4..8], 1, .little);
+    std.mem.writeInt(u32, ztex[8..12], 1, .little);
+    std.mem.writeInt(u32, ztex[12..16], 1, .little);
+    ztex[16] = 0;
+
+    try std.testing.expectError(error.TextureTooLarge, loadAny(std.testing.allocator, &ztex, 3));
+    var loaded = try loadAny(std.testing.allocator, &ztex, 4);
+    defer loaded.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 4), loaded.pixels.len);
+
+    try std.testing.expectError(error.InvalidTexture, load(std.testing.allocator, ztex[0..23]));
+    std.mem.writeInt(u32, ztex[8..12], 0, .little);
+    try std.testing.expectError(error.InvalidDimensions, load(std.testing.allocator, &ztex));
+    std.mem.writeInt(u32, ztex[8..12], 1, .little);
+    ztex[16] = 2;
+    try std.testing.expectError(error.UnsupportedFormat, load(std.testing.allocator, &ztex));
+    ztex[16] = 0;
+    std.mem.writeInt(u32, ztex[4..8], 2, .little);
+    try std.testing.expectError(error.UnsupportedVersion, load(std.testing.allocator, &ztex));
 }

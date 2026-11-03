@@ -64,7 +64,8 @@ backend. `src/gfx/wgpu/` and `src/app/` are deliberately NOT exported from
   Atlases and fonts retain references to their texture; `releaseTexture`
   returns `error.TextureInUse` until those dependent assets are released.
   Releasing a texture frees the CPU copy; the backend evicts its GPU copy on
-  the next render.
+  the next render. `getTexture`, `getAtlas`, and `getFont` pointers are
+  borrowed and must not survive manager mutation/release/deinit.
 - A rendering backend resolves handles and owns its GPU resources
   (pipelines, buffers, textures, bind groups).
 - ECS components are byte-copied on `add` and during archetype migration,
@@ -127,6 +128,15 @@ normalized device coordinates.
 Lower `z_index` draws first; equal layers keep extraction order. Only
 adjacent items sharing texture and layer form one draw call. Rotation is
 applied on the CPU per corner before NDC mapping.
+
+Sprites are centered at `Transform.position`; `size` and position use world
+units, positive x is right and positive y is up. The 2D camera is centered
+orthographic, with `viewport_size` measured in world units at zoom 1. UVs are
+normalized from a top-left origin; tint multiplies sampled RGBA and the GPU
+backends use straight-alpha blending. `Transform.position.z` is carried in
+render data but does not affect sprite depth; painter order is `z_index`.
+When framebuffer width or height is zero, `Game.present` skips backend resize
+and submission while still completing frame bookkeeping.
 
 `SpriteSheet` maps a uniform row-major grid to UV rects (frame 0 = top-left).
 Attach `SpriteAnimation` next to `SpriteRenderer` and register

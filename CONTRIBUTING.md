@@ -16,6 +16,9 @@
 - `zig build` — build the `ez_engine` static library.
 - `zig build test` — run the full unit + integration suite. Must be green
   before every commit.
+- `zig build gl-render-test` / `zig build wgpu-render-test` — run desktop
+  pixel-readback regressions for the real graphics backends (Linux x86_64 and
+  a working display required).
 - `zig fmt --check .` — formatting gate (same command CI runs).
 - `zig build docs` — emit API docs to `zig-out/docs`.
 

@@ -40,10 +40,16 @@ zig build             # Build thư viện tĩnh ez_engine
 zig build test        # Chạy toàn bộ unit tests
 zig build wgpu        # Build sample sprite WGPU (cần Linux x86_64)
 zig build wgpu-run    # Chạy WGPU, yêu cầu Mesa ưu tiên GPU rời nếu có
+zig build wgpu-render-test # Kiểm tra pixel render WGPU trên desktop
 zig build gl          # Build sample OpenGL (cần Linux x86_64)
 zig build gl-run      # Chạy OpenGL, tự ưu tiên GPU rời nếu có
+zig build gl-render-test # Kiểm tra pixel render OpenGL trên desktop
 zig build docs        # Xuất API docs ra zig-out/docs
 ```
+
+Hai bước `*-render-test` cần Linux x86_64 và display hoạt động; chúng render
+sprite qua backend đồ họa rồi đọc pixel từ render target. `zig build test` vẫn
+chỉ chạy bộ test không phụ thuộc display/GPU.
 
 `gl-run` đặt `DRI_PRIME=1` cho Mesa; trên WSLg dùng X11 để tránh các cảnh báo
 EGL khi dò thiết bị, đồng thời chọn driver D3D12 và ưu tiên adapter NVIDIA.

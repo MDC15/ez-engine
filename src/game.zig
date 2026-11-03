@@ -111,17 +111,18 @@ pub const Game = struct {
         try self.render_world.cullSprites2D(self.camera_2d);
         self.render_world.sortForBatching();
         if (self.renderer) |renderer| {
-            if (self.framebuffer_extent.width > 0 and self.framebuffer_extent.height > 0 and
-                (self.framebuffer_extent.width != self.rendered_extent.width or
-                    self.framebuffer_extent.height != self.rendered_extent.height))
-            {
-                try renderer.resize(.{
-                    .width = self.framebuffer_extent.width,
-                    .height = self.framebuffer_extent.height,
-                });
-                self.rendered_extent = self.framebuffer_extent;
+            if (self.framebuffer_extent.width > 0 and self.framebuffer_extent.height > 0) {
+                if (self.framebuffer_extent.width != self.rendered_extent.width or
+                    self.framebuffer_extent.height != self.rendered_extent.height)
+                {
+                    try renderer.resize(.{
+                        .width = self.framebuffer_extent.width,
+                        .height = self.framebuffer_extent.height,
+                    });
+                    self.rendered_extent = self.framebuffer_extent;
+                }
+                try renderer.render(&self.render_world);
             }
-            try renderer.render(&self.render_world);
         }
         self.frame_index += 1;
         self.debug.captureFrame(
@@ -342,7 +343,7 @@ test "game exposes a bindable input map" {
     try std.testing.expect(game.input_map.justPressed(&game.input, "jump"));
 }
 
-test "game shutdown waits for and deinitializes its renderer" {
+test "game shutdown deinitializes its renderer when waiting for idle fails" {
     const BackendState = struct {
         wait_count: u32 = 0,
         deinit_count: u32 = 0,
@@ -352,6 +353,7 @@ test "game shutdown waits for and deinitializes its renderer" {
         fn waitIdle(context: *anyopaque) anyerror!void {
             const self: *@This() = @ptrCast(@alignCast(context));
             self.wait_count += 1;
+            return error.TestWaitFailure;
         }
         fn deinit(context: *anyopaque) void {
             const self: *@This() = @ptrCast(@alignCast(context));
@@ -373,6 +375,108 @@ test "game shutdown waits for and deinitializes its renderer" {
     game.deinit();
     try std.testing.expectEqual(@as(u32, 1), state.wait_count);
     try std.testing.expectEqual(@as(u32, 1), state.deinit_count);
+}
+
+test "game initialization rejects invalid audio configuration without leaking" {
+    try std.testing.expectError(error.UnsupportedChannelCount, Game.init(std.testing.allocator, 0));
+}
+
+test "game update propagates system errors without reporting a successful update" {
+    const FailingSystem = struct {
+        fn run(_: ?*anyopaque, _: *World, _: f32) anyerror!void {
+            return error.TestSystemFailure;
+        }
+    };
+
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    _ = try game.scheduler.addSystem("Failing", null, FailingSystem.run);
+
+    try std.testing.expectError(error.TestSystemFailure, game.update(1.0 / 60.0));
+    try std.testing.expectEqual(@as(u64, 0), game.update_count);
+}
+
+test "game present propagates renderer resize and render failures" {
+    const BackendState = struct {
+        fail_resize: bool = false,
+        fail_render: bool = false,
+        resize_count: u32 = 0,
+        render_count: u32 = 0,
+
+        fn resize(context: *anyopaque, _: @import("gfx/renderer.zig").Extent2D) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context));
+            self.resize_count += 1;
+            if (self.fail_resize) return error.TestResizeFailure;
+        }
+        fn render(context: *anyopaque, _: *const RenderWorld) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context));
+            self.render_count += 1;
+            if (self.fail_render) return error.TestRenderFailure;
+        }
+        fn waitIdle(_: *anyopaque) anyerror!void {}
+        fn deinit(_: *anyopaque) void {}
+    };
+
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    var state: BackendState = .{ .fail_resize = true };
+    game.renderer = .{
+        .context = &state,
+        .vtable = &.{
+            .resize = BackendState.resize,
+            .render = BackendState.render,
+            .waitIdle = BackendState.waitIdle,
+            .deinit = BackendState.deinit,
+        },
+    };
+    game.framebuffer_extent = .{ .width = 640, .height = 360 };
+
+    try std.testing.expectError(error.TestResizeFailure, game.present(1.0 / 60.0));
+    try std.testing.expectEqual(@as(u32, 1), state.resize_count);
+    try std.testing.expectEqual(@as(u32, 0), state.render_count);
+
+    state.fail_resize = false;
+    state.fail_render = true;
+    try std.testing.expectError(error.TestRenderFailure, game.present(1.0 / 60.0));
+    try std.testing.expectEqual(@as(u32, 2), state.resize_count);
+    try std.testing.expectEqual(@as(u32, 1), state.render_count);
+    try std.testing.expectEqual(@as(u64, 0), game.frame_index);
+}
+
+test "game skips renderer submission while framebuffer has zero extent" {
+    const BackendState = struct {
+        resize_count: u32 = 0,
+        render_count: u32 = 0,
+
+        fn resize(context: *anyopaque, _: @import("gfx/renderer.zig").Extent2D) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context));
+            self.resize_count += 1;
+        }
+        fn render(context: *anyopaque, _: *const RenderWorld) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context));
+            self.render_count += 1;
+        }
+        fn waitIdle(_: *anyopaque) anyerror!void {}
+        fn deinit(_: *anyopaque) void {}
+    };
+
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    var state: BackendState = .{};
+    game.renderer = .{
+        .context = &state,
+        .vtable = &.{
+            .resize = BackendState.resize,
+            .render = BackendState.render,
+            .waitIdle = BackendState.waitIdle,
+            .deinit = BackendState.deinit,
+        },
+    };
+
+    try game.present(1.0 / 60.0);
+    try std.testing.expectEqual(@as(u32, 0), state.resize_count);
+    try std.testing.expectEqual(@as(u32, 0), state.render_count);
+    try std.testing.expectEqual(@as(u64, 1), game.frame_index);
 }
 
 test "game tick runs fixed steps and presents once" {

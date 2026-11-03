@@ -12,7 +12,9 @@ details; consumers only import `ez_engine`.
   and `>= 0` (`error.InvalidDeltaTime`).
 - `Game.update(dt: f32) !void` / `Game.present(frame_seconds: f32) !void` —
   the two halves of `frame`: run systems, then extract/cull/sort/render,
-  capture debug stats and reclaim.
+  capture debug stats and reclaim. System, resize, render, and allocation
+  errors propagate to the caller. A zero-width or zero-height framebuffer
+  skips renderer resize/submission but still completes frame bookkeeping.
 - `Game.tick(frame_seconds: f64) !void` — drives `GameLoop`: runs 0..N
   simulation steps then one present; frame time is clamped to
   `loop.max_frame_seconds`. A `stopped` loop skips both.
@@ -74,6 +76,21 @@ details; consumers only import `ez_engine`.
 - `RenderComponents.Transform{ position: Vec3, rotation: Quat, scale: Vec3 }`.
 - `RenderComponents.SpriteRenderer{ texture, size: Vec2, tint: Vec4,
   source_rect: UVRect, z_index: i32 }`.
+- Sprite `size` and positions use world units; sprite origin is centered,
+  rotation is applied around that center, and x/y position/scale drive the
+  2D quad (`position.z` is retained in extracted data but does not affect
+  depth). `Camera2D` is centered orthographic; positive x points right and
+  positive y points up. `viewport_size` is world-space size at zoom 1, and
+  zoom scales the visible world area inversely.
+- `UVRect` is normalized with top-left origin; atlas and sprite-sheet frame
+  zero start at the top-left. Sprite tint multiplies sampled RGBA; backends
+  use straight-alpha blending. Lower `z_index` draws first; equal layers
+  preserve ECS extraction order. Batching groups only adjacent sprites with
+  matching z-index and texture handle.
+- `Game.present` resizes the backend when framebuffer extent changes and
+  submits only while both framebuffer dimensions are nonzero. Backend errors
+  are returned. `Game.deinit` logs a `waitIdle` failure and continues teardown;
+  GPU backends evict released texture copies on their next render or deinit.
 - `RenderComponents.SpriteSheet{ columns, rows }` +
   `frameUv(i) !UVRect`; `SpriteAnimation{ sheet, clip, ... }` with
   `play(clip)`, `update(sprite, dt)`, and scheduler-ready
@@ -191,6 +208,9 @@ details; consumers only import `ez_engine`.
   by the caller; aliases such as `assets/hero.png` and `./assets/hero.png` are
   distinct entries. Use a consistent path spelling. Releasing an atlas or font
   does not release its texture.
+- `Assets.getTexture`, `getAtlas`, and `getFont` return borrowed pointers into
+  manager storage. Do not retain them across asset-manager mutation, release,
+  or deinitialization; keep the manager alive for the entire borrow.
 - `AssetLoading.Texture`: raw `load(bytes)` / `loadAny(bytes, max)`.
 - `Texture{ width, height, format: rgba8|bgra8, ... }`.
 - `Audio.init(allocator, channels)` / `initConfigured(..., rate)` (default
