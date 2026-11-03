@@ -26,13 +26,15 @@ src/math/             Vec2/3/4, Quat, Mat4
 src/core/             generational handles, leveled logger, debug stats,
                       clock/fixed-step time, frame arena
 src/gfx/              sprites, Camera2D + follow, render world/batching,
-                      Backend vtable, Headless backend, texture descriptor,
-                      platform event interface
+                      packed atlas, bitmap font, Backend vtable, Headless,
+                      texture descriptor, platform event interface
 src/gfx/wgpu/         SpriteBackend (separate module, Linux x86_64 only)
-src/asset/            Manager (path-cached handles), texture_loader (PNG/ZTEX)
-src/audio/            WAV decode + software mixer (no device backend yet)
+src/asset/            Manager (path-cached generational handles), texture loader
+src/audio/            WAV decode/resample + software mixer + device interface;
+                      NullDevice and Linux PulseAudio device
 src/input/            OS-independent Key/MouseButton/Input with 1-frame edges
-src/physics/          Collision2D: discrete AABB overlap + events (no dynamics)
+src/physics/          Collision2D: discrete AABB overlap + events;
+                      Physics2D: basic velocity/gravity/damping/restitution
 src/platform/         GLFW window adapter → Platform.Window/Event
 src/scene/            Scene document: JSON save/load (ez_engine.Scene)
 src/script/           Script behaviors (onStart/onUpdate) + Mover2D
@@ -49,12 +51,20 @@ backend. `src/gfx/wgpu/` and `src/app/` are deliberately NOT exported from
 
 - `Game` owns the world, scheduler, asset manager, audio mixer and render
   world. `Game.init(allocator, audio_channels)` builds them; `Game.deinit`
-  waits for renderer work, destroys the backend, then releases assets.
+  waits for renderer work, deinitializes registered systems while their
+  world/assets are alive, destroys the backend, and releases subsystems.
+- Scheduler system contexts are borrowed from the caller and must remain
+  alive through scheduler deinitialization. Systems that own allocations can
+  be registered with `addSystemWithDeinit`; cleanup runs once in reverse
+  dependency order. The callback releases system-owned resources but does
+  not free the context storage itself.
 - `Assets` owns decoded texture pixels and file-cache bytes. Load files with
   the caller's `std.Io` plus a maximum byte size; textures are cached by path
   and returned as generational handles (`TextureHandle{index, generation}`).
-  Releasing a texture only frees the CPU copy; the backend evicts its GPU
-  copy on the next render.
+  Atlases and fonts retain references to their texture; `releaseTexture`
+  returns `error.TextureInUse` until those dependent assets are released.
+  Releasing a texture frees the CPU copy; the backend evicts its GPU copy on
+  the next render.
 - A rendering backend resolves handles and owns its GPU resources
   (pipelines, buffers, textures, bind groups).
 - ECS components are byte-copied on `add` and during archetype migration,
@@ -196,10 +206,16 @@ recommended pattern.
 
 - Sprites only. Mesh/material/3D support was removed; re-adding it is a
   future design decision, not a leftover.
-- Uniform-grid sprite sheets only; no packed atlas or complex clips.
-- Discrete AABB overlap only; no physics simulation.
+- Sprite rendering is 2D-only. Uniform-grid animation and packed atlas clips
+  are supported; there is no tilemap or general 2D UI system.
+- Collision is discrete AABB, pairwise, and ignores rotation. Physics is a
+  basic velocity integrator, not a full rigid-body solver; no CCD, joints, or
+  broad phase for large collider counts.
 - Software audio mixer + offline resampler; `Audio.Device` vtable with a
-  headless `NullDevice`, but no OS audio driver yet.
-- No reference-image test for the WGPU sample.
+  headless `NullDevice` and Linux PulseAudio `PulseDevice`. The app must manage
+  device lifetime and pump frames; other OS audio devices are not included.
+- Scene JSON is a small example document, not generic world/component
+  serialization. There is no editor or runtime scene pipeline.
+- No reference-image test for the GPU samples.
 - CI runs `zig build`, `zig build test`, `zig fmt --check` (see
   `.github/workflows/ci.yml`); license is MIT (`LICENSE`); version `0.1.0`.

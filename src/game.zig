@@ -1,6 +1,8 @@
 const std = @import("std");
 const World = @import("ecs/world.zig").World;
 const Entity = @import("ecs/entity.zig").Entity;
+const Handles = @import("core/handle.zig");
+const RenderComponents = @import("gfx/render_components.zig");
 const Scheduler = @import("ecs/scheduler.zig").Scheduler;
 const Input = @import("ez_input").Input;
 const InputMap = @import("ez_input").InputMap;
@@ -68,6 +70,9 @@ pub const Game = struct {
                     .{err},
                 ) catch {};
             };
+        }
+        self.scheduler.deinit();
+        if (self.renderer) |renderer| {
             renderer.deinit();
             self.renderer = null;
         }
@@ -75,7 +80,6 @@ pub const Game = struct {
         self.audio.deinit();
         self.assets.deinit();
         self.render_world.deinit();
-        self.scheduler.deinit();
         self.world.deinit();
         self.reclaimer.deinit();
     }
@@ -152,6 +156,50 @@ pub const Game = struct {
 
     pub fn destroyDeferred(self: *Game, entity: Entity) !void {
         try self.world.destroyDeferred(entity);
+    }
+
+    /// Releases a texture only when no live sprite component references it.
+    /// Pending renderer work is completed before its CPU-side asset data is freed.
+    pub fn releaseTexture(self: *Game, handle: Handles.TextureHandle) !void {
+        var sprites = self.world.query(.{RenderComponents.SpriteRenderer});
+        while (sprites.next()) |sprite| {
+            const texture = sprite.SpriteRenderer.texture;
+            if (texture.index == handle.index and texture.generation == handle.generation) {
+                return error.TextureInUse;
+            }
+        }
+        try self.waitRendererIdle();
+        try self.assets.releaseTexture(handle);
+    }
+
+    /// Releases an atlas only when no live atlas-player component references it.
+    pub fn releaseAtlas(self: *Game, handle: Handles.AtlasHandle) !void {
+        var players = self.world.query(.{RenderComponents.AtlasPlayer});
+        while (players.next()) |player| {
+            const atlas = player.AtlasPlayer.atlas;
+            if (atlas.index == handle.index and atlas.generation == handle.generation) {
+                return error.AtlasInUse;
+            }
+        }
+        try self.waitRendererIdle();
+        try self.assets.releaseAtlas(handle);
+    }
+
+    /// Releases a font only when no live text component references it.
+    pub fn releaseFont(self: *Game, handle: Handles.FontHandle) !void {
+        var texts = self.world.query(.{RenderComponents.Text});
+        while (texts.next()) |text| {
+            const font = text.Text.font;
+            if (font.index == handle.index and font.generation == handle.generation) {
+                return error.FontInUse;
+            }
+        }
+        try self.waitRendererIdle();
+        try self.assets.releaseFont(handle);
+    }
+
+    fn waitRendererIdle(self: *Game) !void {
+        if (self.renderer) |renderer| try renderer.waitIdle();
     }
 
     pub fn frameAllocator(self: *Game) std.mem.Allocator {
@@ -245,6 +293,47 @@ test "game frame extracts 2d sprite components" {
     try std.testing.expectEqual(@as(i32, 7), item.z_index);
 }
 
+test "game protects textures referenced by live sprite components" {
+    const Components = @import("gfx/render_components.zig");
+
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    const entity = try game.world.create();
+    const texture = Handles.TextureHandle{ .index = 9, .generation = 2 };
+    try game.world.add(entity, Components.SpriteRenderer{ .texture = texture });
+
+    try std.testing.expectError(error.TextureInUse, game.releaseTexture(texture));
+
+    try game.world.remove(entity, Components.SpriteRenderer);
+    try std.testing.expectError(error.InvalidHandle, game.releaseTexture(texture));
+}
+
+test "game protects atlases referenced by live atlas-player components" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    const entity = try game.world.create();
+    const atlas = Handles.AtlasHandle{ .index = 4, .generation = 3 };
+    try game.world.add(entity, RenderComponents.AtlasPlayer{ .atlas = atlas });
+
+    try std.testing.expectError(error.AtlasInUse, game.releaseAtlas(atlas));
+
+    try game.world.remove(entity, RenderComponents.AtlasPlayer);
+    try std.testing.expectError(error.InvalidHandle, game.releaseAtlas(atlas));
+}
+
+test "game protects fonts referenced by live text components" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    const entity = try game.world.create();
+    const font = Handles.FontHandle{ .index = 5, .generation = 2 };
+    try game.world.add(entity, RenderComponents.Text{ .font = font });
+
+    try std.testing.expectError(error.FontInUse, game.releaseFont(font));
+
+    try game.world.remove(entity, RenderComponents.Text);
+    try std.testing.expectError(error.InvalidHandle, game.releaseFont(font));
+}
+
 test "game exposes a bindable input map" {
     var game = try Game.init(std.testing.allocator, 2);
     defer game.deinit();
@@ -331,6 +420,57 @@ test "stopped loop does not present or step" {
     try std.testing.expect(game.loop.isStopped());
     try game.tick(0.25);
     try std.testing.expectEqual(@as(u64, 0), game.frame_index);
+}
+
+test "game deinitializes systems while their runtime dependencies are alive" {
+    const BackendState = struct {
+        wait_count: u32 = 0,
+
+        fn resize(_: *anyopaque, _: @import("gfx/renderer.zig").Extent2D) anyerror!void {}
+        fn render(_: *anyopaque, _: *const RenderWorld) anyerror!void {}
+        fn waitIdle(context: *anyopaque) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context));
+            self.wait_count += 1;
+        }
+        fn deinit(_: *anyopaque) void {}
+    };
+    var game = try Game.init(std.testing.allocator, 2);
+    var deinitialized = false;
+    defer if (!deinitialized) game.deinit();
+    const entity = try game.world.create();
+    const Probe = struct {
+        game: *Game,
+        entity: Entity,
+        backend_state: *BackendState,
+        saw_live_world: bool = false,
+        saw_waited_renderer: bool = false,
+
+        fn update(_: ?*anyopaque, _: *World, _: f32) anyerror!void {}
+
+        fn deinit(context: ?*anyopaque) void {
+            const self: *@This() = @ptrCast(@alignCast(context.?));
+            self.saw_live_world = self.game.world.isAlive(self.entity);
+            self.saw_waited_renderer = self.backend_state.wait_count == 1;
+        }
+    };
+    var backend_state: BackendState = .{};
+    game.renderer = .{
+        .context = &backend_state,
+        .vtable = &.{
+            .resize = BackendState.resize,
+            .render = BackendState.render,
+            .waitIdle = BackendState.waitIdle,
+            .deinit = BackendState.deinit,
+        },
+    };
+    var probe = Probe{ .game = &game, .entity = entity, .backend_state = &backend_state };
+    _ = try game.scheduler.addSystemWithDeinit("cleanup probe", &probe, Probe.update, Probe.deinit);
+
+    game.deinit();
+    deinitialized = true;
+
+    try std.testing.expect(probe.saw_live_world);
+    try std.testing.expect(probe.saw_waited_renderer);
 }
 
 test "fixed loop consumes an input edge once per frame" {

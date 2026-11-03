@@ -1,45 +1,58 @@
-# Tình trạng dự án (2026-10-11)
+# Tổng quan dự án (2026-11-03)
 
-`ez-engine` (`ez_engine`, `0.1.0`) là framework game 2D viết bằng Zig
-0.16.0: ECS archetype-based + đường render sprite (extract → cull → batch →
-backend). Runtime tách gameplay khỏi GPU; sample WGPU dùng GLFW + Dawn.
+`ez-engine` là framework game 2D viết bằng Zig 0.16.0. Hướng chính là
+gameplay ECS và render sprite; framework hiện phù hợp để làm prototype hoặc
+game nhỏ, chưa tuyên bố production-ready. Lộ trình hoàn thiện core nằm trong
+[nghiệm thu.md](../nghiệm%20thu.md).
 
-## Đã có
+## Core hiện có
 
-- **ECS**: `World` (generational entity, add/remove/get/has/query),
-  `Scheduler` tuần tự có topo-sort + phát hiện cycle, `Query`
-  (Read/Optional/Exclude). Component phải là plain data.
-- **Render 2D**: `Transform/SpriteRenderer/SpriteSheet/SpriteAnimation`,
-  `RenderWorld` sprites-only, `Camera2D` + follow, batch theo texture/layer,
-  nearest + alpha blend. Backend `Headless` trong lib, `SpriteBackend`
-  (WGPU) ở module riêng `wgpu_backend`.
-- **Asset**: handle generational cache theo path; PNG (zigimg) + ZTEX nội bộ.
-- **Khác**: input không phụ thuộc OS, WAV decode + mixer (chưa device),
-  collision AABB + event begin/stay/end, logger level/category, debug stats,
-  `Scene` save/load JSON version 1.
-- **Scripting**: behavior `onStart`/`onUpdate` (`Script.init/initWithStart` +
-  `register`), `Mover2D` built-in, `App` gom window + graphics + game.
-- **Scaffold**: `zig build new -Dname=...` sinh project chuẩn, nối `App`,
-  `Script` và `wgpu_backend`.
-- **Ví dụ + test**: 1 example (`wgpu`), suite
-  (`zig build test` xanh) gồm test script/mover/backend-interface.
-- **Docs**: README (tổng quan), `docs/architecture.md`, `docs/api.md`,
-  `docs/project-management.md`, CHANGELOG, `zig build docs`.
+- **Runtime/ECS:** generational entities, archetype-based `World`, query,
+  scheduler topo-order, dependency giữa systems, deferred destroy,
+  fixed/variable timestep và frame allocator.
+- **System lifecycle:** scheduler hỗ trợ cleanup callback theo thứ tự ngược
+  dependency; system context do caller sở hữu và phải sống đến khi scheduler
+  deinit. `Game.deinit()` đợi renderer idle, chạy cleanup, rồi mới hủy
+  renderer/world/assets.
+- **Render 2D:** transform/sprite, camera orthographic, culling, painter order,
+  batching, post-process cơ bản và backend interface. Có Headless cho test,
+  WGPU và OpenGL cho desktop Linux x86_64.
+- **Đồ họa/assets:** cache generational cho texture PNG/ZTEX, packed atlas,
+  sprite animation, bitmap font UTF-8 và text glyph sprites. Texture chưa thể
+  release khi atlas/font còn tham chiếu.
+- **Input/platform:** keyboard, mouse, scroll, action/axis mapping và GLFW
+  adapter; desktop helper hiện hướng tới Linux x86_64.
+- **Va chạm/chuyển động:** AABB discrete với event begin/stay/end, layer/mask;
+  Physics2D tích phân velocity, gravity, damping và restitution cơ bản.
+- **Audio:** WAV decode/resample, software mixer, `NullDevice` và
+  PulseAudio `PulseDevice` trên Linux; game tự quản lý device/pump.
+- **Gameplay/tooling:** Zig-native `Script`/`Mover2D`, document scene JSON
+  mẫu, project scaffold, sample WGPU/OpenGL.
 
-## Phạm vi hiện tại
+## Giới hạn được công bố
 
-Framework tập trung vào game 2D với ECS, render sprite, input, audio mixer,
-va chạm, scene JSON và scripting Zig-native. Các công cụ project tạo game
-được triển khai trong Zig và dùng `zig build new`.
+- Chỉ render 2D sprite; chưa có tilemap, UI widget/layout, particle system,
+  editor hoặc hot reload.
+- Physics chưa phải rigid-body solver: không CCD, joints, rotation-aware
+  collider hoặc broad phase cho scene lớn.
+- Scene JSON chưa serialize tổng quát mọi ECS component và chưa có pipeline
+  editor-to-runtime.
+- Audio device chưa đa nền tảng; app tích hợp chịu trách nhiệm lifetime và
+  thời điểm pump.
+- GPU render regression/golden-image và ma trận CI nhiều hệ điều hành chưa
+  được hoàn thiện.
 
-## Còn thiếu để thành lib hoàn chỉnh
+## Build và test
 
-- [x] **P0**: `LICENSE`, `CONTRIBUTING.md`, CI (`zig build`, `test`,
-  `fmt --check`); version `0.1.0`.
-- [ ] **P1**: test golden-image cho WGPU; audio-device backend; kiểm chứng
-  quy tắc component lifetime (đã ghi trong TODO); bảng tương thích mở rộng
-  ngoài Linux x86_64.
-- [ ] **P2**: packed atlas + animation clip phức tạp; JPEG; mô phỏng vật lý;
-  pipeline scene → runtime; bench hiệu năng (`cull`/`batch`/ECS iter).
+Từ repository root:
 
-Việc dở dang chi tiết xem `TODO.md`.
+```sh
+zig build
+zig build test
+zig fmt --check src tests tools template examples build.zig build.zig.zon
+zig build docs
+```
+
+WGPU/OpenGL desktop samples cần Linux x86_64 theo cấu hình build hiện tại.
+Chi tiết API xem [api.md](api.md); ranh giới module/ownership xem
+[architecture.md](architecture.md).

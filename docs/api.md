@@ -18,12 +18,20 @@ details; consumers only import `ez_engine`.
   `loop.max_frame_seconds`. A `stopped` loop skips both.
 - `Game.run(io: std.Io, window: Platform.Window) !void` — clock loop feeding
   `tick`; feed input via `beginFrame()` + platform events.
-- `Game.deinit()` — `waitIdle`, destroys backend, then frees subsystems.
+- `Game.deinit()` — waits for renderer work, deinitializes registered systems,
+  destroys the renderer, then frees game subsystems. System cleanup can still
+  access the world and assets.
 - `game.loop: GameLoop` — timing controller: `time_scale` (0 or negative
   freezes), `pause`/`unpause`/`stop`, `GameLoop.initFixed(step_seconds,
   max_steps)`; default is `variable` (one step per frame).
 - `Game.destroyDeferred(entity) !void` and `Game.frameAllocator() Allocator` —
   end-of-frame destroy queue and temp allocator; backed by `game.reclaimer`.
+- `Game.releaseTexture(handle) !void` — rejects a texture referenced by any
+  live `SpriteRenderer`, waits for renderer work, then releases the asset.
+  Returns `error.TextureInUse` while an entity still uses that handle.
+- `Game.releaseAtlas(handle) !void` and `Game.releaseFont(handle) !void` —
+  reject release while live `AtlasPlayer` or `Text` components reference those
+  handles, then wait for renderer work before release.
 - `game.renderer: ?Renderer.Backend`, `game.camera_2d: Camera2D`,
   `game.debug: Debug.Monitor`, `game.logger: Logging.Logger`,
   `game.input: Input`, `game.assets: Assets`, `game.world: World`.
@@ -47,12 +55,19 @@ details; consumers only import `ez_engine`.
   `World.pendingDestroyCount()`. `destroy` stays immediate.
 - `Entity{ id, generation }` (generational: stale handles fail `isAlive`).
 - `Scheduler`: `addSystem(name, ctx, UpdateFn) !SystemId`,
+  `addSystemWithDeinit(name, ctx, UpdateFn, DeinitFn) !SystemId`,
   `dependsOn(before, after)`, `run(world, dt)` in topological order,
-  `error.DependencyCycle` on loops.
+  `error.DependencyCycle` on loops. A registered context is borrowed, not
+  allocated or freed by the scheduler; it must outlive the scheduler.
+  `addSystemWithDeinit` calls the supplied cleanup callback exactly once
+  from   `Scheduler.deinit()`, in reverse dependency order. `Game.deinit()` waits for
+  renderer work, then deinitializes its scheduler before destroying the
+  renderer, assets or world.
 - `Query`: `Read(T)`, `Optional(T)`, `Exclude(T)` combinators;
   `Query(Include, Excluded, World).next()`.
 
 `UpdateFn = *fn (?*anyopaque, *World, f32) anyerror!void`.
+`DeinitFn = *fn (?*anyopaque) void`.
 
 ## Sprites and camera
 
@@ -69,7 +84,8 @@ details; consumers only import `ez_engine`.
   / `getAtlas` / `releaseAtlas` (path-cached, texture-independent).
   `RenderComponents.AtlasPlayer{ atlas, clip_index, ... }` +
   `Atlas.playAtlas(manager, world, entity, atlas, clip)` and scheduler-ready
-  `Atlas.AtlasSystem` (holds `*Manager`); `SpriteRenderer.draw_offset`
+  `Atlas.AtlasSystem` (holds `*Manager`); use `Game.releaseAtlas` while the
+  game world may contain `AtlasPlayer`s. `SpriteRenderer.draw_offset`
   shifts the quad in world units and is added at `extract` time.
 - `RenderWorld`: `extract(world)`, `cullSprites2D(Camera2D)`,
   `sortForBatching()`, `batches()` → `Batch{texture, z_index, first, count}`.
@@ -78,8 +94,9 @@ details; consumers only import `ez_engine`.
   `follow_speed` (`0` = snap) and `offset`.
 - Bitmap fonts (`Font`): `Assets.loadFontFile(io, json_path, texture_path,
   max_bytes) !FontHandle` caches the JSON and shared texture; `getFont` and
-  `releaseFont` manage the font independently of its texture. Font JSON uses
-  version 1:
+  `releaseFont` manage the font independently of its texture; use
+  `Game.releaseFont` while the world may contain `Text` components. Font JSON
+  uses version 1:
 
   ```json
   {
@@ -104,10 +121,10 @@ details; consumers only import `ez_engine`.
   creates ordinary sprite entities for glyphs; register
   `Font.TextSystem.updateSystem` with its context after gameplay updates.
   Supports left/center/right alignment against the widest line and
-  newline-separated lines. Glyph
-  entities carry `RenderComponents.GlyphOf{ parent }`; exclude that marker
-  from gameplay queries. Call `TextSystem.deinit()` before deinitializing the
-  world.
+  newline-separated lines. Glyph entities carry
+  `RenderComponents.GlyphOf{ parent }`; exclude that marker from gameplay
+  queries. Register the system with its cleanup callback so glyph children
+  are removed while the world is alive:
 
   ```zig
   const font = try game.assets.loadFontFile(
@@ -125,9 +142,16 @@ details; consumers only import `ez_engine`.
   try game.world.add(label, text);
 
   var text_system = Font.TextSystem.init(&game.assets);
-  defer text_system.deinit();
-  try game.scheduler.addSystem("Text", &text_system, Font.TextSystem.updateSystem);
+  try game.scheduler.addSystemWithDeinit(
+      "Text",
+      &text_system,
+      Font.TextSystem.updateSystem,
+      Font.TextSystem.deinitSystem,
+  );
   ```
+
+  `text_system` storage is borrowed by the scheduler and must remain alive
+  until `game.deinit()`; scheduler cleanup calls `TextSystem.deinitSystem`.
 
 ## Collision
 
@@ -159,7 +183,14 @@ details; consumers only import `ez_engine`.
 ## Assets and audio
 
 - `Assets.loadTextureFile(io, path, max_bytes) !TextureHandle` (PNG/ZTEX,
-  path-cached); `getTexture(handle)`, `releaseTexture(handle)`.
+  path-cached); `getTexture(handle)`, `releaseTexture(handle)`. A texture
+  referenced by a live atlas or font cannot be released and returns
+  `error.TextureInUse`; release dependent atlases/fonts first. For textures
+  referenced by ECS sprites, use `Game.releaseTexture`; direct manager release
+  does not inspect the game world. Cache keys are the exact path bytes supplied
+  by the caller; aliases such as `assets/hero.png` and `./assets/hero.png` are
+  distinct entries. Use a consistent path spelling. Releasing an atlas or font
+  does not release its texture.
 - `AssetLoading.Texture`: raw `load(bytes)` / `loadAny(bytes, max)`.
 - `Texture{ width, height, format: rgba8|bgra8, ... }`.
 - `Audio.init(allocator, channels)` / `initConfigured(..., rate)` (default
@@ -167,6 +198,9 @@ details; consumers only import `ez_engine`.
   `stop(voice)`, `mix(out: []f32)`; `decodeWav(allocator, bytes)`.
   `Audio.resample(allocator, clip, target_rate) !OwnedClip` (offline linear
   interpolation — the documented fix for `error.SampleRateMismatch`);
+  `Audio.releaseClip(allocator, &owned_clip)` frees decoded/resampled samples
+  only after voices using that clip are stopped or complete (`ClipInUse`
+  otherwise). `play` borrows the clip; keep its storage stable until then.
   `Audio.Device` vtable (`write(frames)`, `deinit`) with headless
   `Audio.NullDevice` for tests. `AudioClip` is the root-exported clip type.
 - `Audio.PulseDevice.init(audio, app, stream, server) !PulseDevice` (Linux;
@@ -184,15 +218,18 @@ details; consumers only import `ez_engine`.
 - `Input`: `key/keyCode`, `isDown/justPressed/justReleased(key)`, `mouseButton`,
   `moveMouse`, `addScroll`; per-frame edges via `beginFrame()`
   (`pressed`/`released` live one frame). `clearEdges()` drops the edges but
-  keeps held state (used after the first fixed step). `Key` names the GLFW key
-  set; `Key` / `MouseButton` enums exported at root.
+  keeps held state (used after the first fixed step). Platform focus loss
+  releases held keys/buttons and resets the cursor-delta origin. Invalid raw
+  platform key codes are logged and ignored. `Key` names the GLFW key set;
+  `Key` / `MouseButton` enums exported at root.
 - `InputMap` (root export): `init(allocator)`, `bind(action, InputBinding)`,
   `isDown/justPressed/justReleased(input, action)`, `axis(input, negative,
   positive)`. `InputBinding` is `.key`, `.key_code` or `.mouse`. `Game.input_map`
   is a ready, empty map; `Game.deinit` frees it.
 - `Platform.Window` vtable (`pollEvents`, `framebuffer_extent`,
-  `requestClose`, `shouldClose`) and `Platform.Event`; GLFW adapter at
-  `src/platform/glfw_window.zig` (`WindowAdapter.init(w, h, title)`).
+  `requestClose`, `shouldClose`) and `Platform.Event` (including focus
+  changes); GLFW adapter at `src/platform/glfw_window.zig`
+  (`WindowAdapter.init(w, h, title)`).
 - `Scene.Document`: `init/deinit`, `add(kind) !id`, `remove(id) bool`,
   `get(id) ?*Object`, `save(io, path)`, `load(io, path)`
   (`error.UnsupportedSceneVersion` unless `version == 1`).

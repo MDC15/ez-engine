@@ -129,6 +129,16 @@ pub const Audio = struct {
         self.voices.items[voice_index].active = false;
     }
 
+    /// Releases an owned clip after all voices using it have stopped.
+    /// `play` borrows the clip, so keep its `OwnedClip` storage stable until
+    /// playback ends or the corresponding voices are stopped.
+    pub fn releaseClip(self: *Audio, allocator: std.mem.Allocator, clip: *OwnedClip) error{ClipInUse}!void {
+        for (self.voices.items) |voice| {
+            if (voice.active and voice.clip == &clip.clip) return error.ClipInUse;
+        }
+        clip.deinit(allocator);
+    }
+
     /// Mixes the next frames into output and clamps the result to [-1, 1].
     /// Clip/output sample rates must match; resampling is intentionally
     /// performed by asset preparation, not from the real-time callback.
@@ -265,6 +275,23 @@ test "software mixer sums voices and clamps output" {
     var output: [2]f32 = undefined;
     try audio.mix(&output);
     try std.testing.expectEqualSlices(f32, &.{ 1, -1 }, &output);
+}
+
+test "owned audio clip cannot be released while a voice is using it" {
+    var audio = try Audio.init(std.testing.allocator, 1);
+    defer audio.deinit();
+    const source = [_]f32{ 0.25, 0.5 };
+    var owned = try Audio.resample(
+        std.testing.allocator,
+        .{ .sample_rate = 48000, .channels = 1, .samples = &source },
+        48000,
+    );
+    try std.testing.expectEqual(@as(usize, 0), try audio.play(&owned.clip, 1));
+    try std.testing.expectError(error.ClipInUse, audio.releaseClip(std.testing.allocator, &owned));
+
+    try audio.stop(0);
+    try audio.releaseClip(std.testing.allocator, &owned);
+    try std.testing.expectEqual(@as(usize, 0), owned.clip.samples.len);
 }
 
 test "WAV decoder reads little-endian signed PCM" {

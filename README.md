@@ -289,14 +289,13 @@ src/
   ecs/                # World, Entity, Scheduler, Query (archetype-based)
   math/               # Vec2/3/4, Quat, Mat4
   core/               # handle, log, debug stats, time, allocator
-  gfx/                # render_world, render_components, camera2d, sprite_animation,
-                      # renderer (Backend vtable + Headless), texture, platform
+  gfx/                # sprite render, camera, atlas, bitmap font, renderer/backend
   gfx/wgpu/           # SpriteBackend (module riêng, chỉ Linux x86_64)
   gfx/gl/             # SpriteBackend OpenGL (module riêng, chỉ Linux x86_64)
-  asset/              # Manager (cache handle), texture_loader (PNG + ZTEX)
-  audio/              # WAV decoder + software mixer (chưa có audio device)
+  asset/              # Manager (generational handles/cache), texture loader
+  audio/              # WAV decode/resample, software mixer, Null/Pulse devices
   input/              # Key/MouseButton/Input + InputMap, không phụ thuộc OS
-  physics/            # Collision2D (AABB + layer/mask) + Physics2D (velocity/gravity)
+  physics/            # Collision2D (AABB + layer/mask) + basic Physics2D
   platform/           # GLFW window adapter
   scene/              # Scene document: save/load JSON (ez_engine.Scene)
   script/             # Script behaviors (onStart/onUpdate) + Mover2D
@@ -313,18 +312,25 @@ tools/                # scaffold.zig: `zig build new` generator
 
 - Sprite 2D: transform, tint, alpha blend, camera orthographic, culling và
   batching theo texture/layer liền kề.
-- Sprite sheet dạng lưới đều + animation ECS cơ bản.
-- Collider AABB 2D phát event begin/stay/end, đẩy vật solid khỏi chồng lấn;
-  chưa có mô phỏng vật lý (lực, ma sát, CCD).
+- Sprite sheet dạng lưới, packed atlas/clip, bitmap font UTF-8 và ECS systems
+  cho animation/text.
+- Collider AABB 2D phát event begin/stay/end, layer/mask và đẩy vật solid;
+  Physics2D tích phân velocity, gravity, damping và restitution cơ bản.
+  Chưa có broad phase, CCD, joints hay mô phỏng rigid-body đầy đủ.
 - Asset texture: PNG (qua zigimg) và ZTEX nội bộ RGBA8/BGRA8; chưa có JPEG.
-- ECS archetype-based, scheduler tuần tự có kiểm tra dependency cycle, input
-  state, action/axis mapping có tên (`InputMap`), WAV decoder + mixer phần
-  mềm (chưa có audio device).
+- ECS archetype-based, scheduler tuần tự có dependency và cleanup systems
+  theo thứ tự ngược dependency; input state và action/axis mapping
+  (`InputMap`).
+- Audio WAV decode/resample và software mixer; có `NullDevice` và
+  `PulseDevice` trên Linux. Thiết bị không được `Game` sở hữu tự động:
+  app/game tự quản lý lifetime và pump.
 - GLFW adapter dùng `Game.run`: phím, chuột, scroll, đóng cửa sổ, resize.
 - Logger level/category và debug stats (frame, FPS, entity, culling, batch).
 - Scene document: object sprite/obstacle/pickup, lưu/mở JSON version 1.
+- Scene hiện là document mẫu; chưa serialize tổng quát mọi entity/component.
 - Scripting Zig-native: behavior `onStart`/`onUpdate` + `Mover2D` built-in,
   đăng ký một dòng qua `Script.register`.
 - Project scaffold: `zig build new -Dname=...` sinh cấu trúc project chuẩn
   (starter dùng App + Script, đã nối `wgpu_backend`).
-- Chưa có: mesh/material 3D, packed atlas, audio device OS, vật lý mô phỏng.
+- Chưa có: mesh/material 3D, tilemap, UI widgets, particles, editor/hot reload,
+  scene/prefab pipeline tổng quát và audio device đa nền tảng.

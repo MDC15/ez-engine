@@ -55,6 +55,7 @@ pub const WindowAdapter = struct {
         _ = native_window.setCursorPosCallback(onCursorPosition);
         _ = native_window.setScrollCallback(onScroll);
         _ = native_window.setFramebufferSizeCallback(onFramebufferResize);
+        _ = native_window.setFocusCallback(onFocus);
     }
 
     pub fn deinit(self: *WindowAdapter) void {
@@ -157,5 +158,10 @@ pub const WindowAdapter = struct {
             .width = @intCast(@max(width, 0)),
             .height = @intCast(@max(height, 0)),
         } });
+    }
+
+    fn onFocus(window: *zglfw.Window, focused: zglfw.Bool) callconv(.c) void {
+        const adapter = fromNative(window) orelse return;
+        adapter.emit(.{ .focus_changed = focused == zglfw.TRUE });
     }
 };

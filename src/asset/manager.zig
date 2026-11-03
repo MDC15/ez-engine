@@ -108,6 +108,7 @@ pub const Manager = struct {
     paths: std.StringHashMapUnmanaged(AssetHandle) = .empty,
     textures: Store(TextureLoader.TextureData, Handles.TextureHandle, releaseTextureData),
     texture_paths: std.StringHashMapUnmanaged(Handles.TextureHandle) = .empty,
+    texture_dependents: std.AutoHashMapUnmanaged(u64, u32) = .empty,
     atlases: Store(AtlasEntry, Handles.AtlasHandle, releaseAtlasData),
     atlas_paths: std.StringHashMapUnmanaged(Handles.AtlasHandle) = .empty,
     fonts: Store(FontEntry, Handles.FontHandle, releaseFontData),
@@ -136,6 +137,7 @@ pub const Manager = struct {
         while (texture_keys.next()) |key| self.allocator.free(key.*);
         self.texture_paths.deinit(self.allocator);
         self.textures.deinit();
+        self.texture_dependents.deinit(self.allocator);
         self.paths.deinit(self.allocator);
         self.assets.deinit();
     }
@@ -165,6 +167,10 @@ pub const Manager = struct {
     }
 
     pub fn releaseTexture(self: *Manager, handle: Handles.TextureHandle) !void {
+        if (self.texture_dependents.get(textureKey(handle))) |count| {
+            if (count > 0) return error.TextureInUse;
+            return error.AssetCacheCorrupt;
+        }
         try self.textures.remove(handle);
         var found_path: ?[]const u8 = null;
         var iter = self.texture_paths.iterator();
@@ -198,7 +204,9 @@ pub const Manager = struct {
         errdefer self.allocator.free(owned_path);
         var owned = try AtlasModule.load(self.allocator, asset.bytes, texture_data.width, texture_data.height);
         errdefer owned.deinit(self.allocator);
+        try self.prepareTextureRetain(texture_handle);
         const handle = try self.atlases.insert(.{ .texture = texture_handle, .atlas = owned });
+        self.retainTextureAssumeCapacity(texture_handle);
         self.atlas_paths.putAssumeCapacityNoClobber(owned_path, handle);
         return handle;
     }
@@ -208,7 +216,11 @@ pub const Manager = struct {
     }
 
     pub fn releaseAtlas(self: *Manager, handle: Handles.AtlasHandle) !void {
+        const atlas_entry = self.atlases.get(handle) orelse return error.InvalidHandle;
+        const texture = atlas_entry.texture;
+        try self.validateTextureRelease(texture);
         try self.atlases.remove(handle);
+        self.releaseTextureAssumeValid(texture);
         var found_path: ?[]const u8 = null;
         var iter = self.atlas_paths.iterator();
         while (iter.next()) |entry| {
@@ -240,7 +252,9 @@ pub const Manager = struct {
         errdefer self.allocator.free(owned_path);
         var font = try FontModule.load(self.allocator, asset.bytes, texture_data.width, texture_data.height);
         errdefer font.deinit(self.allocator);
+        try self.prepareTextureRetain(texture_handle);
         const handle = try self.fonts.insert(.{ .texture = texture_handle, .font = font });
+        self.retainTextureAssumeCapacity(texture_handle);
         self.font_paths.putAssumeCapacityNoClobber(owned_path, handle);
         return handle;
     }
@@ -250,7 +264,11 @@ pub const Manager = struct {
     }
 
     pub fn releaseFont(self: *Manager, handle: Handles.FontHandle) !void {
+        const font_entry = self.fonts.get(handle) orelse return error.InvalidHandle;
+        const texture = font_entry.texture;
+        try self.validateTextureRelease(texture);
         try self.fonts.remove(handle);
+        self.releaseTextureAssumeValid(texture);
         var found_path: ?[]const u8 = null;
         var iter = self.font_paths.iterator();
         while (iter.next()) |entry| {
@@ -262,6 +280,37 @@ pub const Manager = struct {
         if (found_path) |path_key| {
             _ = self.font_paths.remove(path_key);
             self.allocator.free(@constCast(path_key));
+        }
+    }
+
+    fn prepareTextureRetain(self: *Manager, handle: Handles.TextureHandle) !void {
+        if (self.texture_dependents.get(textureKey(handle))) |count| {
+            if (count == std.math.maxInt(u32)) return error.AssetReferenceOverflow;
+        }
+        try self.texture_dependents.ensureUnusedCapacity(self.allocator, 1);
+    }
+
+    fn retainTextureAssumeCapacity(self: *Manager, handle: Handles.TextureHandle) void {
+        const key = textureKey(handle);
+        if (self.texture_dependents.getPtr(key)) |count| {
+            count.* += 1;
+        } else {
+            self.texture_dependents.putAssumeCapacityNoClobber(key, 1);
+        }
+    }
+
+    fn validateTextureRelease(self: *Manager, handle: Handles.TextureHandle) error{AssetCacheCorrupt}!void {
+        const count = self.texture_dependents.get(textureKey(handle)) orelse return error.AssetCacheCorrupt;
+        if (count == 0) return error.AssetCacheCorrupt;
+    }
+
+    fn releaseTextureAssumeValid(self: *Manager, handle: Handles.TextureHandle) void {
+        const key = textureKey(handle);
+        const count = self.texture_dependents.getPtr(key).?;
+        if (count.* == 1) {
+            _ = self.texture_dependents.remove(key);
+        } else {
+            count.* -= 1;
         }
     }
 
@@ -299,6 +348,10 @@ pub const Manager = struct {
     }
 };
 
+fn textureKey(handle: Handles.TextureHandle) u64 {
+    return (@as(u64, handle.index) << 32) | handle.generation;
+}
+
 test "asset handles become stale after release and slot reuse" {
     var meshes = Store(u32, Handles.TextureHandle, null).init(std.testing.allocator);
     defer meshes.deinit();
@@ -325,6 +378,68 @@ test "manager caches atlas by json path and keeps texture independent" {
     try std.testing.expect(manager.getAtlas(h1) == null);
     const tex = try manager.loadTextureFile(io, "tests/fixtures/atlas_test.ztex", 1024 * 1024);
     try std.testing.expect(manager.getTexture(tex) != null);
+}
+
+test "texture cache keys use exact path strings and handles change after release" {
+    var threaded = std.Io.Threaded.init(std.testing.allocator, .{});
+    defer threaded.deinit();
+    const io = threaded.io();
+    var manager = Manager.init(std.testing.allocator);
+    defer manager.deinit();
+
+    const path = "tests/fixtures/atlas_test.ztex";
+    const first = try manager.loadTextureFile(io, path, 1024 * 1024);
+    const cached = try manager.loadTextureFile(io, path, 1024 * 1024);
+    try std.testing.expectEqual(first.index, cached.index);
+    try std.testing.expectEqual(first.generation, cached.generation);
+
+    try manager.releaseTexture(first);
+    try std.testing.expect(manager.getTexture(first) == null);
+    const reloaded = try manager.loadTextureFile(io, path, 1024 * 1024);
+    try std.testing.expectEqual(first.index, reloaded.index);
+    try std.testing.expect(first.generation != reloaded.generation);
+
+    const alias = try manager.loadTextureFile(io, "./tests/fixtures/atlas_test.ztex", 1024 * 1024);
+    try std.testing.expect(alias.index != reloaded.index or alias.generation != reloaded.generation);
+}
+
+test "texture cannot be released while an atlas or font depends on it" {
+    var threaded = std.Io.Threaded.init(std.testing.allocator, .{});
+    defer threaded.deinit();
+    const io = threaded.io();
+    var manager = Manager.init(std.testing.allocator);
+    defer manager.deinit();
+
+    const atlas = try manager.loadAtlasFile(
+        io,
+        "tests/fixtures/atlas_test.json",
+        "tests/fixtures/atlas_test.ztex",
+        1024 * 1024,
+    );
+    const second_atlas = try manager.loadAtlasFile(
+        io,
+        "tests/fixtures/atlas_second_test.json",
+        "tests/fixtures/atlas_test.ztex",
+        1024 * 1024,
+    );
+    const texture = manager.getAtlas(atlas).?.texture;
+    const font = try manager.loadFontFile(
+        io,
+        "tests/fixtures/font_test.json",
+        "tests/fixtures/font_test.ztex",
+        1024 * 1024,
+    );
+    const font_texture = manager.getFont(font).?.texture;
+
+    try std.testing.expectError(error.TextureInUse, manager.releaseTexture(texture));
+    try manager.releaseAtlas(atlas);
+    try std.testing.expectError(error.TextureInUse, manager.releaseTexture(texture));
+    try manager.releaseAtlas(second_atlas);
+    try manager.releaseTexture(texture);
+    try std.testing.expectError(error.TextureInUse, manager.releaseTexture(font_texture));
+    try manager.releaseFont(font);
+    try manager.releaseTexture(font_texture);
+    try std.testing.expect(manager.getTexture(font_texture) == null);
 }
 
 test "manager caches fonts by json path and keeps texture independent" {

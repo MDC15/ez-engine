@@ -147,6 +147,7 @@ pub const Input = struct {
     mouse_buttons: [5]ButtonState = @splat(.{}),
     mouse_x: f32 = 0,
     mouse_y: f32 = 0,
+    mouse_position_valid: bool = false,
     mouse_delta_x: f32 = 0,
     mouse_delta_y: f32 = 0,
     scroll_x: f32 = 0,
@@ -173,6 +174,18 @@ pub const Input = struct {
             button.pressed = false;
             button.released = false;
         }
+    }
+
+    /// Releases held keys/buttons when the host window loses focus and
+    /// prevents a stale cursor position from producing a large delta later.
+    pub fn resetAfterFocusLoss(self: *Input) void {
+        for (&self.keys) |*button| button.update(false);
+        for (&self.mouse_buttons) |*button| button.update(false);
+        self.mouse_delta_x = 0;
+        self.mouse_delta_y = 0;
+        self.scroll_x = 0;
+        self.scroll_y = 0;
+        self.mouse_position_valid = false;
     }
 
     pub fn setKey(self: *Input, code: Key, down: bool) void {
@@ -217,10 +230,13 @@ pub const Input = struct {
     }
 
     pub fn moveMouse(self: *Input, x: f32, y: f32) void {
-        self.mouse_delta_x += x - self.mouse_x;
-        self.mouse_delta_y += y - self.mouse_y;
+        if (self.mouse_position_valid) {
+            self.mouse_delta_x += x - self.mouse_x;
+            self.mouse_delta_y += y - self.mouse_y;
+        }
         self.mouse_x = x;
         self.mouse_y = y;
+        self.mouse_position_valid = true;
     }
 
     pub fn addScroll(self: *Input, x: f32, y: f32) void {
@@ -283,4 +299,25 @@ test "clearEdges drops edges but keeps held state" {
     try std.testing.expect(!input.justPressed(.space));
     try std.testing.expect(input.mouseButton(.left).down);
     try std.testing.expect(!input.mouseButton(.left).pressed);
+}
+
+test "focus loss releases held input and resets cursor delta origin" {
+    var input: Input = .{};
+    input.setKey(.a, true);
+    input.setMouseButton(.left, true);
+    input.moveMouse(100, 200);
+    input.beginFrame();
+    input.moveMouse(110, 220);
+    try std.testing.expectEqual(@as(f32, 10), input.mouse_delta_x);
+    try std.testing.expectEqual(@as(f32, 20), input.mouse_delta_y);
+
+    input.resetAfterFocusLoss();
+
+    try std.testing.expect(!input.isDown(.a));
+    try std.testing.expect(input.justReleased(.a));
+    try std.testing.expect(input.mouseButton(.left).released);
+    try std.testing.expectEqual(@as(f32, 0), input.mouse_delta_x);
+    input.moveMouse(900, 700);
+    try std.testing.expectEqual(@as(f32, 0), input.mouse_delta_x);
+    try std.testing.expectEqual(@as(f32, 0), input.mouse_delta_y);
 }

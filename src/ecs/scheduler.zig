@@ -4,6 +4,7 @@ const System = @import("system.zig").System;
 
 pub const SystemId = @import("system.zig").Id;
 pub const UpdateFn = @import("system.zig").UpdateFn;
+pub const DeinitFn = @import("system.zig").DeinitFn;
 
 const Dependency = struct {
     before: SystemId,
@@ -29,15 +30,49 @@ pub const Scheduler = struct {
     }
 
     pub fn deinit(self: *Scheduler) void {
+        var index = self.order.items.len;
+        while (index > 0) {
+            index -= 1;
+            const system = self.systems.items[self.order.items[index]];
+            if (system.deinit) |deinit_fn| deinit_fn(system.context);
+        }
         self.order.deinit(self.allocator);
         self.dependencies.deinit(self.allocator);
         self.systems.deinit(self.allocator);
     }
 
     pub fn addSystem(self: *Scheduler, name: []const u8, context: ?*anyopaque, update: UpdateFn) !SystemId {
+        return self.addSystemInternal(name, context, update, null);
+    }
+
+    /// Registers a system with a cleanup callback. The scheduler calls the
+    /// callback once during deinit, in reverse dependency order; the caller
+    /// still owns the context storage and must keep it alive until then.
+    pub fn addSystemWithDeinit(
+        self: *Scheduler,
+        name: []const u8,
+        context: ?*anyopaque,
+        update: UpdateFn,
+        deinit_fn: DeinitFn,
+    ) !SystemId {
+        return self.addSystemInternal(name, context, update, deinit_fn);
+    }
+
+    fn addSystemInternal(
+        self: *Scheduler,
+        name: []const u8,
+        context: ?*anyopaque,
+        update: UpdateFn,
+        deinit_fn: ?DeinitFn,
+    ) !SystemId {
         if (self.systems.items.len > std.math.maxInt(SystemId)) return error.OutOfMemory;
         const id: SystemId = @intCast(self.systems.items.len);
-        try self.systems.append(self.allocator, .{ .name = name, .context = context, .update = update });
+        try self.systems.append(self.allocator, .{
+            .name = name,
+            .context = context,
+            .update = update,
+            .deinit = deinit_fn,
+        });
         self.rebuildOrder() catch |err| {
             self.systems.items.len -= 1;
             return err;
@@ -131,4 +166,37 @@ test "scheduler observes explicit dependency order" {
     try scheduler.run(&world, 1.0 / 60.0);
     try std.testing.expectEqualSlices(u8, &.{ 1, 2, 3 }, &state.values);
     try std.testing.expectError(Scheduler.Error.DependencyCycle, scheduler.dependsOn(third, first));
+}
+
+test "scheduler deinitializes systems in reverse dependency order" {
+    const State = struct {
+        id: u8,
+        order: *[2]u8,
+        count: *usize,
+
+        fn update(_: ?*anyopaque, _: *World, _: f32) anyerror!void {}
+
+        fn deinit(context: ?*anyopaque) void {
+            const self: *@This() = @ptrCast(@alignCast(context.?));
+            self.order[self.count.*] = self.id;
+            self.count.* += 1;
+        }
+    };
+
+    var order: [2]u8 = .{ 0, 0 };
+    var count: usize = 0;
+    var first = State{ .id = 1, .order = &order, .count = &count };
+    var second = State{ .id = 2, .order = &order, .count = &count };
+    var scheduler = Scheduler.init(std.testing.allocator);
+    var deinitialized = false;
+    defer if (!deinitialized) scheduler.deinit();
+    const first_id = try scheduler.addSystemWithDeinit("first", &first, State.update, State.deinit);
+    const second_id = try scheduler.addSystemWithDeinit("second", &second, State.update, State.deinit);
+    try scheduler.dependsOn(first_id, second_id);
+
+    scheduler.deinit();
+    deinitialized = true;
+
+    try std.testing.expectEqual(@as(usize, 2), count);
+    try std.testing.expectEqualSlices(u8, &.{ 2, 1 }, &order);
 }

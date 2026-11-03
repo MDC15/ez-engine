@@ -4,6 +4,9 @@
 
 ### Added
 
+- Scheduler-managed system cleanup: `addSystemWithDeinit` runs cleanup hooks
+  in reverse dependency order; `Game.deinit` invokes them before releasing
+  world, assets, and renderer resources.
 - Bitmap-font text rendering: versioned JSON font assets, UTF-8 fallback and
   line layout, plus `Text`/`TextSystem` glyph sprites that use the existing
   render pipeline.
@@ -15,6 +18,8 @@
   (`loadAtlasFile`/`getAtlas`/`releaseAtlas`), `AtlasPlayer` component with
   `playAtlas` + manager-holding `AtlasSystem`, and `SpriteRenderer.draw_offset`
   applied at extract time. Uniform-grid animation is unchanged.
+- Safe owned audio clip release: `Audio.releaseClip` refuses to free samples
+  while an active voice still borrows that clip.
 
 ## 0.1.0 - 2026-10-13
 

@@ -78,6 +78,11 @@ pub const System = struct {
         self.bodies.deinit(self.allocator);
     }
 
+    pub fn deinitSystem(context: ?*anyopaque) void {
+        const self: *System = @ptrCast(@alignCast(context.?));
+        self.deinit();
+    }
+
     pub fn setListener(self: *System, context: ?*anyopaque, listener: Listener) void {
         self.listener_context = context;
         self.listener = listener;

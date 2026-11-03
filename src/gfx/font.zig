@@ -301,6 +301,11 @@ pub const TextSystem = struct {
         self.entries.deinit(self.allocator);
     }
 
+    pub fn deinitSystem(context: ?*anyopaque) void {
+        const self: *TextSystem = @ptrCast(@alignCast(context.?));
+        self.deinit();
+    }
+
     pub fn updateSystem(context: ?*anyopaque, world: *World, dt: f32) anyerror!void {
         const self: *TextSystem = @ptrCast(@alignCast(context.?));
         try self.update(world, dt);

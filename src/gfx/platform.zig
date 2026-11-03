@@ -10,6 +10,7 @@ pub const Event = union(enum) {
     mouse_move: struct { x: f32, y: f32 },
     scroll: struct { x: f32, y: f32 },
     resized: Extent2D,
+    focus_changed: bool,
     close_requested,
 };
 
@@ -48,10 +49,13 @@ pub const Window = struct {
 pub fn feedInput(input: *Input, event: Event) void {
     switch (event) {
         .key => |key| input.setKey(key.code, key.down),
-        .key_code => |key| input.setKeyCode(key.code, key.down) catch {},
+        .key_code => |key| input.setKeyCode(key.code, key.down) catch |err| {
+            std.log.err("platform emitted invalid key code {d}: {s}", .{ key.code, @errorName(err) });
+        },
         .mouse_button => |button| input.setMouseButton(button.button, button.down),
         .mouse_move => |position| input.moveMouse(position.x, position.y),
         .scroll => |scroll| input.addScroll(scroll.x, scroll.y),
+        .focus_changed => |focused| if (!focused) input.resetAfterFocusLoss(),
         .resized, .close_requested => {},
     }
 }
@@ -60,4 +64,12 @@ test "platform event translation updates input state" {
     var input: Input = .{};
     feedInput(&input, .{ .key = .{ .code = .a, .down = true } });
     try std.testing.expect(input.key(.a).pressed);
+}
+
+test "focus loss platform event clears held input safely" {
+    var input: Input = .{};
+    feedInput(&input, .{ .mouse_button = .{ .button = .right, .down = true } });
+    feedInput(&input, .{ .focus_changed = false });
+    try std.testing.expect(input.mouseButton(.right).released);
+    try std.testing.expect(!input.mouseButton(.right).down);
 }
