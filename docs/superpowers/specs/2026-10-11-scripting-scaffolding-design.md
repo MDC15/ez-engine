@@ -4,9 +4,8 @@
 
 ## Intent
 
-Người dùng viết gameplay với ít boilerplate kiểu lib game hiện đại
-(Unity `MonoBehaviour`: `onStart`/`onUpdate`), và tạo project chuẩn không cần
-Python — scaffold xong là `zig build run` được ngay.
+Người dùng viết gameplay bằng behavior Zig có `onStart`/`onUpdate`, và tạo
+project chuẩn có thể build và chạy bằng `zig build run`.
 
 ## Quyết định chính
 
@@ -36,13 +35,12 @@ Python — scaffold xong là `zig build run` được ngay.
    `App`);
    `app.run(io)`; `deinit()` (game dọn backend qua renderer, rồi mới hủy
    graphics/window). Không đưa vào `root.zig` để core build mọi target.
-5. **Scaffold bằng Zig, bỏ Python**: `zig build new -Dname=X
+5. **Scaffold bằng Zig**: `zig build new -Dname=X
    [-Dworkspace=Y]` chạy generator `tools/scaffold.zig`, copy từ
    `template/game/` + thế placeholder (`@NAME@`, `@TITLE@`,
    `@ENGINE_PATH@`), copy assets, tự dò fingerprint bằng
-   `zig build --help` (mẹo cũ của script Python), từ chối khi thư mục đích
-   đã tồn tại. Xóa `tools/ez_project.py` (lệnh `list`/`open` theo đó bỏ;
-   project chỉ là thư mục).
+   `zig build --help`, từ chối khi thư mục đích đã tồn tại. Lệnh quản lý
+   project tập trung vào việc khởi tạo cấu trúc thư mục game.
 6. **Project chuẩn sinh ra** gồm: `build.zig` (đã nối `ez_engine` +
    `wgpu_backend`, step `run`), `build.zig.zon` (+fingerprint),
    `src/main.zig` starter dùng App + Script (~120 dòng: player di chuyển +

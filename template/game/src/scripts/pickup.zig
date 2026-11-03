@@ -1,6 +1,6 @@
 const ez_engine = @import("ez_engine");
 
-// Marker gắn cho entity nhặt được (như Unity tag "Pickup").
+// Marker component for collectible entities.
 pub const Collectible = struct {};
 
 // Listener xóa vật phẩm khi player chạm vào (chỉ xử lý event begin).

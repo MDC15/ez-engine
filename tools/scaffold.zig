@@ -16,6 +16,7 @@ const TemplateFile = struct {
 const template_files = [_]TemplateFile{
     .{ .src = "build.zig", .dst = "build.zig", .name = true },
     .{ .src = "build.zig.zon", .dst = "build.zig.zon", .name = true, .engine_path = true },
+    .{ .src = "tests.zig", .dst = "tests.zig" },
     .{ .src = "src/main.zig", .dst = "src/main.zig", .title = true },
     .{ .src = "src/scripts/player.zig", .dst = "src/scripts/player.zig" },
     .{ .src = "src/scripts/pickup.zig", .dst = "src/scripts/pickup.zig" },
@@ -130,10 +131,25 @@ fn substitute(allocator: std.mem.Allocator, text: []const u8, file: TemplateFile
 }
 
 fn patchFingerprint(io: std.Io, allocator: std.mem.Allocator, target: []const u8) !void {
-    const run = std.process.run(allocator, io, .{
+    const zon_path = try std.fs.path.join(allocator, &.{ target, "build.zig.zon" });
+    defer allocator.free(zon_path);
+    const zon = try std.Io.Dir.cwd().readFileAlloc(io, zon_path, allocator, .limited(64 * 1024));
+    defer allocator.free(zon);
+    const fingerprint_start = std.mem.indexOf(u8, zon, "    .fingerprint = ") orelse return;
+    const fingerprint_newline = std.mem.indexOfScalarPos(u8, zon, fingerprint_start, '\n');
+    const fingerprint_end = if (fingerprint_newline) |newline| newline + 1 else zon.len;
+    var missing_fingerprint: std.ArrayListUnmanaged(u8) = .empty;
+    defer missing_fingerprint.deinit(allocator);
+    try missing_fingerprint.appendSlice(allocator, zon[0..fingerprint_start]);
+    try missing_fingerprint.appendSlice(allocator, zon[fingerprint_end..]);
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = zon_path, .data = missing_fingerprint.items });
+
+    const run_result = std.process.run(allocator, io, .{
         .argv = &.{ "zig", "build", "--help" },
         .cwd = .{ .path = target },
-    }) catch return;
+    });
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = zon_path, .data = zon });
+    const run = run_result catch return;
     defer allocator.free(run.stdout);
     defer allocator.free(run.stderr);
     const output = try std.mem.concat(allocator, u8, &.{ run.stdout, run.stderr });
@@ -144,19 +160,14 @@ fn patchFingerprint(io: std.Io, allocator: std.mem.Allocator, target: []const u8
     while (end < output.len and (std.ascii.isHex(output[end]) or (output[end] == 'x' and end == at + marker.len + 1))) : (end += 1) {}
     const value = output[at + marker.len .. end];
     if (value.len != 18) return;
-    const zon_path = try std.fs.path.join(allocator, &.{ target, "build.zig.zon" });
-    defer allocator.free(zon_path);
-    const zon = try std.Io.Dir.cwd().readFileAlloc(io, zon_path, allocator, .limited(64 * 1024));
-    defer allocator.free(zon);
-    const anchor = "    .version = \"0.1.0\",\n";
-    const pos = std.mem.indexOf(u8, zon, anchor) orelse return;
+
     var patched: std.ArrayListUnmanaged(u8) = .empty;
     errdefer patched.deinit(allocator);
-    try patched.appendSlice(allocator, zon[0 .. pos + anchor.len]);
     const line = try std.fmt.allocPrint(allocator, "    .fingerprint = {s},\n", .{value});
     defer allocator.free(line);
+    try patched.appendSlice(allocator, zon[0..fingerprint_start]);
     try patched.appendSlice(allocator, line);
-    try patched.appendSlice(allocator, zon[pos + anchor.len ..]);
+    try patched.appendSlice(allocator, zon[fingerprint_end..]);
     try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = zon_path, .data = patched.items });
     patched.deinit(allocator);
 }

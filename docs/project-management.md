@@ -7,7 +7,7 @@ zig build install
 export PATH="$PWD/zig-out/bin:$PATH"
 ```
 
-Then scaffold a game project from the framework checkout — no Python needed:
+Create a game project from the framework checkout:
 
 ```sh
 ez build new MyFirstGame
@@ -20,10 +20,10 @@ structure and refuses to overwrite an existing directory:
 
 ```text
 MyFirstGame/
-  build.zig            # wires ez_engine + wgpu_backend + ez_app, step `run`
+  build.zig            # wires ez_engine + wgpu_backend + ez_app, steps `run` and `test`
   build.zig.zon        # deps pinned like the framework, fingerprint included
-  src/main.zig         # bootstrap: window → load scene → spawn → scripts → run
-  src/scripts/         # one MonoBehaviour-style file per behavior
+  src/main.zig         # initializes the app, loads the scene, creates entities and systems
+  src/scripts/         # gameplay behaviors
   src/scripts/player.zig    # Player movement + animation
   src/scripts/pickup.zig    # Collectible tag + pickup listener
   Assets/              # Sprites/Audio/Fonts/Shaders copied from the framework
@@ -34,9 +34,10 @@ MyFirstGame/
   .gitignore
 ```
 
-From the project folder, build and run the starter window with:
+From the project folder, run tests and build or start the game with:
 
 ```sh
+zig build test
 zig build run
 ```
 
@@ -56,17 +57,15 @@ driver, and prefers the NVIDIA adapter. Existing driver/adapter settings are
 preserved. For a different WSL GPU, set
 `MESA_D3D12_DEFAULT_ADAPTER_NAME` to a substring of its adapter name before
 running. If hardware acceleration is unavailable, GL may fall back to
-llvmpipe (software) and logs a warning. The starter is
-organized like Unity: `Scenes/editor_scene.json` holds every object's
-position and size, `src/main.zig` only bootstraps (window → load scene →
-spawn entities → wire systems → run), and each behavior lives in its
-own file under `src/scripts/` (`Player` movement + animation, pickup
-listener, wall collision sample). Behaviors use the ctx-free
-`onUpdate(self, game, dt)` form, and `main.zig` wires physics + collision +
-camera and turns debug on (fps/entity stats) for you — all written with the
-`Script` API from `docs/api.md`, so it doubles as the recommended starting
-point for your own behaviors. Edit the scene JSON to change gameplay without
-touching code.
+llvmpipe (software) and logs a warning.
+
+The starter scene is stored in `Scenes/editor_scene.json`. The entry point in
+`src/main.zig` loads the scene, creates entities, registers scripts and systems,
+then starts the app. Gameplay behaviors live in separate files under
+`src/scripts/`; the sample includes player movement and animation, a pickup
+listener, collision, physics and camera follow. Use the `Script` API described
+in `docs/api.md` as a starting point for additional behaviors. Edit the scene
+JSON to adjust object positions and sizes.
 
 A project references this framework checkout by relative path; keep the
 checkout available at that path when building the game.

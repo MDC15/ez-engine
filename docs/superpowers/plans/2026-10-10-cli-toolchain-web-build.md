@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Zig 0.16.0 (`minimum_zig_version`), không thêm bước Python.
+- Zig 0.16.0 (`minimum_zig_version`); mọi bước build được khai báo trong `build.zig`.
 - Core lib (`ez_engine` root) KHÔNG phụ thuộc `zgpu`/`zglfw`/emscripten — mọi module web/platform là module riêng chỉ wire khi target phù hợp.
 - Mỗi task kết thúc bằng `zig build test` PASS + `zig fmt --check` sạch cho file chạm tới (trừ Task 1 spike, chạy `zig fmt --check` trên file spike).
 - Nghiệm thu web = Chrome/Edge trên máy Linux host (WSLg hoặc headless không cần — chỉ cần mở được tab). Firefox/Safari best effort, không phải tiêu chí.

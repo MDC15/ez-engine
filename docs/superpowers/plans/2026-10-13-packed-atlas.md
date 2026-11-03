@@ -120,10 +120,8 @@ git commit -m "feat: add packed atlas document with validation"
 
 - [ ] **Step 1: Create fixtures + write failing test**
 
-Generate the texture fixture (4x2 RGBA: left half red, right half green):
-```bash
-python3 -c "import struct;px=bytes([255,0,0,255])*4+bytes([0,255,0,255])*4;open('assets/atlas_test.ztex','wb').write(b'ZTEX'+struct.pack('<II',1,1)+struct.pack('<II',4,2)+bytes([0,0,0,0])+px)"
-```
+Create a 4x2 RGBA ZTEX fixture with the left half red and right half green;
+use the format specified in `docs/architecture.md`.
 `assets/atlas_test.json` (Task 1 shape; frames `a` at x=0 and `b` at x=2, clip `ab`):
 ```zig
 test "manager caches atlas by json path and keeps texture independent" {

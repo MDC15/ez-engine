@@ -19,23 +19,23 @@ backend). Runtime tách gameplay khỏi GPU; sample WGPU dùng GLFW + Dawn.
   `Scene` save/load JSON version 1.
 - **Scripting**: behavior `onStart`/`onUpdate` (`Script.init/initWithStart` +
   `register`), `Mover2D` built-in, `App` gom window + graphics + game.
-- **Scaffold**: `zig build new -Dname=...` sinh project chuẩn (starter dùng
-  App + Script, đã nối `wgpu_backend`), không cần Python.
+- **Scaffold**: `zig build new -Dname=...` sinh project chuẩn, nối `App`,
+  `Script` và `wgpu_backend`.
 - **Ví dụ + test**: 1 example (`wgpu`), suite
   (`zig build test` xanh) gồm test script/mover/backend-interface.
 - **Docs**: README (tổng quan), `docs/architecture.md`, `docs/api.md`,
   `docs/project-management.md`, CHANGELOG, `zig build docs`.
 
-## Đã xóa (không còn trong repo)
+## Phạm vi hiện tại
 
-Raw Vulkan wrapper, code mesh/material 3D, desktop editor + `zgui`, Python
-project tool, alias public trùng lặp, ~480MB artifacts. Chi tiết xem
-CHANGELOG.
+Framework tập trung vào game 2D với ECS, render sprite, input, audio mixer,
+va chạm, scene JSON và scripting Zig-native. Các công cụ project tạo game
+được triển khai trong Zig và dùng `zig build new`.
 
 ## Còn thiếu để thành lib hoàn chỉnh
 
-- [ ] **P0**: `LICENSE` + `CONTRIBUTING.md`; CI (`zig build`, `test`,
-  `fmt --check`); version `0.1.0` đã tag.
+- [x] **P0**: `LICENSE`, `CONTRIBUTING.md`, CI (`zig build`, `test`,
+  `fmt --check`); version `0.1.0`.
 - [ ] **P1**: test golden-image cho WGPU; audio-device backend; kiểm chứng
   quy tắc component lifetime (đã ghi trong TODO); bảng tương thích mở rộng
   ngoài Linux x86_64.

@@ -41,7 +41,7 @@ trong browser; `zig build web-run` serve cục bộ để xem thử.
 
 - **Không** được làm hỏng `zig build test`, sample WGPU Linux, hay `zig build
   new` hiện có.
-- **Không** thêm bước Python.
+- **Không** thêm công cụ build ngoài Zig.
 - Core lib (`ez_engine` root) **không** được phụ thuộc `zgpu`/`zglfw`/
   emscripten.
 

@@ -95,7 +95,7 @@ git commit -m "chore: remove unused vulkan/mesh/material code, sprites-only rend
 ### Task 3: Facade public API + rename package
 
 **Files:**
-- Modify: `build.zig.zon:9,13`, `build.zig:35-49`, `src/root.zig` (toàn file), `examples/*/main.zig` (`@import("game_lib")`), `tools/ez_project.py`, `README.md`
+- Modify: `build.zig.zon:9,13`, `build.zig:35-49`, `src/root.zig` (toàn file), `examples/*/main.zig` (`@import("game_lib")`), project management utility, `README.md`
 
 **Interfaces:**
 - Consumes: Task 2 (root đã gọn)
@@ -107,7 +107,7 @@ git commit -m "chore: remove unused vulkan/mesh/material code, sprites-only rend
 
 - [ ] **Step 2: Sửa consumer**
 
-`examples/sandbox|wgpu_clear|editor/main.zig`: `@import("game_lib")` → `@import("ez_engine")`; `tools/ez_project.py`: template build.zig.zon mới; README snippet `zig fetch --save` mới.
+`examples/sandbox|wgpu_clear|editor/main.zig`: `@import("game_lib")` → `@import("ez_engine")`; project generator: template build.zig.zon mới; README snippet `zig fetch --save` mới.
 
 - [ ] **Step 3: Run tests**
 

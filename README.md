@@ -105,7 +105,7 @@ zig build install
 export PATH="$PWD/zig-out/bin:$PATH"
 ```
 
-Tạo game project mới (không cần Python):
+Tạo game project mới:
 
 ```sh
 ez build new MyFirstGame

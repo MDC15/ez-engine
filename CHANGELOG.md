@@ -28,7 +28,7 @@
 - Desktop `App` helper (`ez_app` module): window + graphics + game + backend
   in `App.init`, `run`, `deinit`. The WGPU sample is gameplay-only.
 - `zig build new -Dname=<name>` scaffolds a standard project template
-  (starter uses App + Script); the Python project tool is gone.
+  with the starter app and gameplay scripts.
 - Input ergonomics: `Key` now names the full GLFW key set (letters, digits,
   function keys, navigation, modifiers, keypad, punctuation) and `Input`
   gains `isDown` / `justPressed` / `justReleased`. New `InputMap` (root
@@ -55,9 +55,8 @@
 ### Removed
 
 - Deleted the desktop editor (`examples/editor/`, `docs/editor.md`,
-  `zig build editor(editor-run)` steps, `zgui` dependency, `open` subcommand
-  in `tools/ez_project.py`). Scene editing is done by hand in
-  `Scenes/editor_scene.json` (`ez_engine.Scene` format).
+  `zig build editor(editor-run)` steps and `zgui` dependency. Scene editing
+  is done by hand in `Scenes/editor_scene.json` (`ez_engine.Scene` format).
 
 - Removed the headless `sandbox` example and the `zig build example` step;
   the headless backend is still covered by `tests/backend_iface_test.zig`.
@@ -77,11 +76,11 @@
 - Renamed the WGPU sample: `examples/wgpu_clear` → `examples/wgpu`, and the
   build steps `zig build wgpu-clear` / `wgpu-clear-run` → `zig build wgpu` /
   `zig build wgpu-run`.
-- Project template is organized Unity-style: `src/main.zig` only
-  bootstraps (window → load `Scenes/editor_scene.json` → spawn entities
-  → attach scripts → run), behaviors live one-per-file under
-  `src/scripts/` (`player.zig`, `pickup.zig`), and object
-  positions/sizes come from the scene JSON instead of hardcoded values.
+- Project startup and gameplay live in separate modules: `src/main.zig`
+  initializes the app, loads `Scenes/editor_scene.json`, creates entities and
+  registers scripts before running. Behaviors live under `src/scripts/`
+  (`player.zig`, `pickup.zig`), and object positions/sizes come from the scene
+  JSON instead of hardcoded values.
 - Source break: `Script.Mover2D.update` now takes `(game: *Game, dt: f32)`
   instead of a `*Script.Ctx`. The `Script.Ctx` behavior form still works;
   migrate `self.mover.update(ctx)` → `self.mover.update(game, dt)`.

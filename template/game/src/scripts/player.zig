@@ -1,7 +1,7 @@
 const ez_engine = @import("ez_engine");
 
-// MonoBehaviour "Player": đi bằng WASD/arrows, đổi animation idle/walk.
-// Gắn vào entity bằng Script.register trong main.zig.
+// Player behavior: WASD/arrows movement and idle/walk animation.
+// Registered with the scheduler from main.zig.
 pub const Player = struct {
     const Animation = ez_engine.RenderComponents.SpriteAnimation;
 

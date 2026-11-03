@@ -78,4 +78,15 @@ pub fn build(b: *std.Build) void {
     const run = b.addRunArtifact(game);
     const run_step = b.step("run", "Build and run the game");
     run_step.dependOn(&run.step);
+
+    const tests_module = b.createModule(.{
+        .root_source_file = b.path("tests.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tests_module.addImport("ez_engine", engine.module("ez_engine"));
+    const tests = b.addTest(.{ .root_module = tests_module });
+    const run_tests = b.addRunArtifact(tests);
+    const test_step = b.step("test", "Run game tests");
+    test_step.dependOn(&run_tests.step);
 }

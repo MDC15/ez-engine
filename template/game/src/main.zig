@@ -4,19 +4,14 @@ const App = @import("ez_app").App;
 const Player = @import("scripts/player.zig").Player;
 const Pickup = @import("scripts/pickup.zig");
 
-// Bản đồ khái niệm Unity → template này:
-//   Scene (file)   → Scenes/editor_scene.json (sửa vị trí/kích thước ở đó)
-//   GameObject     → Entity (mỗi object trong scene nở thành 1 entity)
-//   Component      → Transform, SpriteRenderer, Collider2D, ... (gắn bằng world.add)
-//   MonoBehaviour  → struct có onStart/onUpdate trong src/scripts/, đăng ký bằng Script.register
-//   Build Settings → project.json (startup_scene phải khớp STARTUP_SCENE)
+// Scene path must match the startup_scene configured in project.json.
 const STARTUP_SCENE = "Scenes/editor_scene.json"; // khớp project.json:startup_scene
 const WINDOW_TITLE = "@TITLE@";
 
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
 
-    // 1. Cửa sổ + game (như Unity mở viewport).
+    // 1. Initialize the application window and game runtime.
     var app: App = undefined;
     try app.init(allocator, WINDOW_TITLE, 1280, 720, false);
     defer app.deinit();
@@ -27,8 +22,8 @@ pub fn main(init: std.process.Init) !void {
     defer scene.deinit();
     try scene.load(init.io, STARTUP_SCENE);
 
-    // 3. Nở mỗi object thành entity + components (như Unity instantiate prefab).
-    // Base components do SceneSpawn lo; marker game-specific gắn thêm tại đây.
+    // 3. Create an entity and its base components for each scene object.
+    // SceneSpawn creates base components; add game-specific markers here.
     const player_sheet = try game.assets.loadTextureFile(init.io, "Assets/Sprites/player_sheet.png", 16 * 1024 * 1024);
     const sprite = try game.assets.loadTextureFile(init.io, "Assets/Sprites/sprite.png", 16 * 1024 * 1024);
     const textures = ez_engine.SceneSpawn.SpawnTextures{ .player = player_sheet, .sprite = sprite };
@@ -44,7 +39,7 @@ pub fn main(init: std.process.Init) !void {
     }
     if (player == null) return error.MissingPlayer;
 
-    // 4. Gắn scripts + systems (như Unity thêm Component vào GameObject).
+    // 4. Register gameplay behaviors and runtime systems.
     var behaviour = Player{};
     behaviour.mover.entity = player.?;
     var script = ez_engine.Script.init(game, &behaviour);

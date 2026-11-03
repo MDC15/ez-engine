@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Người dùng viết gameplay bằng behavior `onStart`/`onUpdate` và tạo project chuẩn chỉ với `zig build new`, không cần Python.
+**Goal:** Người dùng viết gameplay bằng behavior `onStart`/`onUpdate` và tạo project chuẩn bằng `zig build new`.
 
 **Architecture:** `Script` là comptime adapter bọc struct thường thành ECS system (không đụng `Scheduler` core); `App` gom boilerplate desktop vào một module riêng Linux-only; generator Zig copy `template/game/` + thế placeholder.
 
@@ -199,18 +199,17 @@ git add examples/wgpu_clear/main.zig
 git commit -m "refactor: example gameplay uses Script behaviors"
 ```
 
-### Task 5: Scaffold `zig build new` + project chuẩn, bỏ Python
+### Task 5: Scaffold `zig build new` + project chuẩn
 
 **Files:**
 - Create: `template/game/build.zig`, `template/game/build.zig.zon`, `template/game/src/main.zig`, `template/game/Scenes/editor_scene.json`, `template/game/project.json`, `template/game/README.md`, `template/game/.gitignore`, `tools/scaffold.zig`
 - Modify: `build.zig` (options `-Dname`/`-Dworkspace`, scaffold exe, step `new`), `README.md`, `docs/api.md`, `docs/project-management.md`, `docs/architecture.md` (mục scripting), `CHANGELOG.md`
-- Delete: `tools/ez_project.py`
 
 **Interfaces:**
 - Consumes: Task 1–3 (starter dùng `App` + `Script.Mover2D` + animation/pickup/wall/camera như example Task 4, ~120 dòng)
 - Produces: `zig build new -Dname=Foo [-Dworkspace=DIR]` sinh project đầy đủ và in bước tiếp theo; chạy lần hai vào chỗ cũ → lỗi sạch không ghi đè.
 
-Placeholder trong template: `@NAME@` (tên hiển thị + window title), `@ENGINE_PATH@` (relative path từ project tới framework, tính lúc generate), deps `zglfw`/`zgpu`/`dawn` pin y nguyên `build.zig.zon` của repo. `build.zig.zon` template KHÔNG có fingerprint; generator chạy `zig build --help` với cwd=target, parse `suggested value: 0x…`, patch vào zon (mẹo cũ của script Python). Assets copy từ repo `assets/` lúc generate. `project.json` giữ `{format_version: 1, engine: "ez-engine", startup_scene}`.
+Placeholder trong template: `@NAME@` (tên hiển thị + window title), `@ENGINE_PATH@` (relative path từ project tới framework, tính lúc generate), deps `zglfw`/`zgpu`/`dawn` pin y nguyên `build.zig.zon` của repo. Generator chạy `zig build --help` với cwd=target, đọc `suggested value: 0x…` rồi cập nhật fingerprint trong manifest. Assets copy từ repo `assets/` lúc generate. `project.json` giữ `{format_version: 1, engine: "ez-engine", startup_scene}`.
 
 - [ ] **Step 1: Viết template starter `template/game/src/main.zig`**
 
@@ -220,9 +219,9 @@ Dùng `App` + `Player` script (Mover2D + 2 clips) + pickup + wall + camera follo
 
 Generator: tạo target rỗng thì fail `Project directory already exists`; copy cây template với thay placeholder; copy `assets/*` → `Assets/`; dò fingerprint; in `Next: cd ... && zig build run`.
 
-- [ ] **Step 3: Nối build.zig và xóa Python**
+- [ ] **Step 3: Nối generator vào build.zig**
 
-`build.zig`: options `name` (bắt buộc khi chạy `new`), `workspace` (mặc định `projects/`); compile `tools/scaffold.zig` thành exe, step `new` chạy exe với args. Xóa `tools/ez_project.py`.
+`build.zig`: options `name` (bắt buộc khi chạy `new`), `workspace` (mặc định `projects/`); compile `tools/scaffold.zig` thành exe, step `new` chạy exe với args; gỡ tiện ích quản lý project cũ.
 
 - [ ] **Step 4: Verify sinh project thật**
 
@@ -230,9 +229,9 @@ Run: `rm -rf /tmp/ez-verify && zig build new -Dname=VerifyGame -Dworkspace=/tmp/
 
 - [ ] **Step 5: Cập nhật docs + commit**
 
-README (mục project/scripting mới, bỏ Python), `docs/api.md` (+Script/App/Mover2D), `docs/project-management.md` (flow `zig build new`), `docs/architecture.md` (+mục scripting), CHANGELOG (added/removed).
+README (mục project/scripting mới), `docs/api.md` (+Script/App/Mover2D), `docs/project-management.md` (flow `zig build new`), `docs/architecture.md` (+mục scripting), CHANGELOG (added/removed).
 
 ```bash
 git add template tools build.zig README.md docs CHANGELOG.md
-git commit -m "feat: zig build new scaffolding, standard project template, drop python tool"
+git commit -m "feat: zig build new scaffolding and standard project template"
 ```
