@@ -18,5 +18,5 @@
             .hash = "N-V-__8AAK7XUQNKNRnv1J6i189jtURJKjp3HTftoyD4Y4CB",
         },
     },
-    .paths = .{ "build.zig", "build.zig.zon", "src", "tests.zig", "Assets", "Scenes", "project.json", "README.md" },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "tests.zig", "Assets", "Scenes", "Prefabs", "project.json", "README.md" },
 }

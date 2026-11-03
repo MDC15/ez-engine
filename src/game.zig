@@ -629,6 +629,64 @@ test "input edge survives a rendered frame that runs zero fixed steps" {
     try std.testing.expectEqual(@as(u32, 1), presses);
 }
 
+test "input edges, mouse deltas, and scroll are consumed by the first of multiple fixed steps" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+    game.loop = try GameLoop.initFixed(0.1, 8);
+
+    var observed_steps: u32 = 0;
+    var pressed_steps: u32 = 0;
+    var delta_sum: f32 = 0;
+    var scroll_sum: f32 = 0;
+    const Probe = struct {
+        game: *Game,
+        observed_steps: *u32,
+        pressed_steps: *u32,
+        delta_sum: *f32,
+        scroll_sum: *f32,
+
+        fn run(context: ?*anyopaque, _: *World, _: f32) anyerror!void {
+            const self: *@This() = @ptrCast(@alignCast(context.?));
+            self.observed_steps.* += 1;
+            if (self.game.input.justPressed(.space)) self.pressed_steps.* += 1;
+            self.delta_sum.* += self.game.input.mouse_delta_x;
+            self.scroll_sum.* += self.game.input.scroll_y;
+        }
+    };
+    var probe = Probe{
+        .game = &game,
+        .observed_steps = &observed_steps,
+        .pressed_steps = &pressed_steps,
+        .delta_sum = &delta_sum,
+        .scroll_sum = &scroll_sum,
+    };
+    _ = try game.scheduler.addSystem("Input probe", &probe, Probe.run);
+
+    game.input.moveMouse(100, 100);
+    game.input.moveMouse(112, 95);
+    game.input.addScroll(0, 2);
+    game.input.setKey(.space, true);
+    try game.tick(0.25);
+
+    try std.testing.expectEqual(@as(u32, 2), observed_steps);
+    try std.testing.expectEqual(@as(u32, 1), pressed_steps);
+    try std.testing.expectEqual(@as(f32, 12), delta_sum);
+    try std.testing.expectEqual(@as(f32, 2), scroll_sum);
+    try std.testing.expect(game.input.isDown(.space));
+}
+
+test "platform close and resize events update game state" {
+    var game = try Game.init(std.testing.allocator, 2);
+    defer game.deinit();
+
+    Game.onPlatformEvent(&game, .{ .resized = .{ .width = 1280, .height = 720 } });
+    try std.testing.expectEqual(@as(u32, 1280), game.framebuffer_extent.width);
+    try std.testing.expectEqual(@as(u32, 720), game.framebuffer_extent.height);
+    game.running = true;
+    Game.onPlatformEvent(&game, .close_requested);
+    try std.testing.expect(!game.running);
+}
+
 test "deferred entity is destroyed after a frame" {
     var game = try Game.init(std.testing.allocator, 2);
     defer game.deinit();

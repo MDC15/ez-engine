@@ -1,8 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "objects": [
-    { "id": 1, "kind": "sprite", "position": [0, 0], "size": [48, 48] },
-    { "id": 2, "kind": "obstacle", "position": [0, 150], "size": [100, 60] },
-    { "id": 3, "kind": "pickup", "position": [300, 0], "size": [40, 40] }
+    { "id": 1, "kind": "sprite", "position": [0, 0], "size": [48, 48], "asset_path": "Assets/Sprites/player_sheet.png" },
+    { "id": 2, "kind": "obstacle", "position": [0, 150], "size": [100, 60], "asset_path": "Assets/Sprites/sprite.png" }
   ]
 }

@@ -153,13 +153,13 @@ pub const System = struct {
     }
 };
 
-fn makeBody(world: *World, entity: Entity, transform: *Components.Transform, collider: *Collider2D) error{InvalidCollider}!Body {
+fn makeBody(world: *World, entity: Entity, transform: *Components.Transform, collider: *Collider2D) anyerror!Body {
     const values = [_]f32{
         transform.position.x, transform.position.y, transform.scale.x, transform.scale.y,
         collider.offset.x,    collider.offset.y,    collider.size.x,   collider.size.y,
     };
     for (values) |value| if (!std.math.isFinite(value)) return error.InvalidCollider;
-    if (collider.size.x < 0 or collider.size.y < 0) return error.InvalidCollider;
+    if (collider.size.x <= 0 or collider.size.y <= 0) return error.InvalidCollider;
 
     const scale_x = @abs(transform.scale.x);
     const scale_y = @abs(transform.scale.y);
@@ -172,11 +172,17 @@ fn makeBody(world: *World, entity: Entity, transform: *Components.Transform, col
         .y = collider.size.y * scale_y * 0.5,
     };
     if (!std.math.isFinite(center.x) or !std.math.isFinite(center.y) or
-        !std.math.isFinite(half_size.x) or !std.math.isFinite(half_size.y))
+        !std.math.isFinite(half_size.x) or !std.math.isFinite(half_size.y) or
+        half_size.x <= 0 or half_size.y <= 0)
         return error.InvalidCollider;
 
     const velocity: ?*Physics2D.Velocity = world.get(entity, Physics2D.Velocity) catch null;
     const rigid: ?*Physics2D.RigidBody2D = world.get(entity, Physics2D.RigidBody2D) catch null;
+    if (rigid) |body| try Physics2D.validateRigidBody(body.*);
+    if (velocity) |value| {
+        if (!std.math.isFinite(value.linear.x) or !std.math.isFinite(value.linear.y))
+            return error.InvalidBody;
+    }
     const movable = if (rigid) |body|
         body.body_type == .dynamic
     else
@@ -435,4 +441,20 @@ test "kinematic body is not pushed by an overlapping dynamic body" {
     try system.update(&world);
     try std.testing.expectEqual(@as(f32, 0), (try world.get(platform, Components.Transform)).position.x);
     try std.testing.expectEqual(@as(f32, 10), (try world.get(moving, Components.Transform)).position.x);
+}
+
+test "collisions reject degenerate colliders and invalid restitution" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const entity = try world.create();
+    try world.add(entity, Components.Transform{});
+    try world.add(entity, Collider2D{ .size = .{ .x = 0, .y = 1 } });
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    try std.testing.expectError(error.InvalidCollider, system.update(&world));
+
+    try world.remove(entity, Collider2D);
+    try world.add(entity, Collider2D{ .size = .{ .x = 1, .y = 1 } });
+    try world.add(entity, Physics2D.RigidBody2D{ .restitution = std.math.nan(f32) });
+    try std.testing.expectError(error.InvalidRigidBody, system.update(&world));
 }

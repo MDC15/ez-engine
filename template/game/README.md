@@ -22,6 +22,9 @@ or import modules containing tests.
   movement and animation, plus a pickup listener.
 - `Scenes/editor_scene.json` stores the sample scene's objects, positions and
   sizes; `project.json` identifies the startup scene.
+- `Prefabs/pickup.json` is a reusable single-object definition. Load it with
+  `Scene.Prefab.parse`, then spawn it with `SceneSpawn.spawnPrefabResolved`
+  and a project asset resolver.
 - `Assets/` contains sprites, audio, fonts and shaders. Shader changes take
   effect after rebuilding.
 

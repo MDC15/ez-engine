@@ -165,7 +165,9 @@ pub const PulseDevice = struct {
     pub fn deinit(self: *PulseDevice) void {
         var err: c_int = 0;
         if (self.stream) |s| {
-            _ = self.fns.pa_drain(s, &err); // shutdown path: never fail
+            if (self.fns.pa_drain(s, &err) != 0) {
+                std.log.warn("PulseAudio stream drain failed during shutdown (code {d})", .{err});
+            }
             self.fns.pa_free(s);
             self.stream = null;
         }
@@ -228,6 +230,7 @@ const FakePulse = struct {
     free_count: usize = 0,
     drained_before_freed: bool = false,
     write_result: c_int = 0,
+    drain_result: c_int = 0,
     captured: [16]f32 = [_]f32{0} ** 16,
     captured_len: usize = 0,
 
@@ -256,11 +259,12 @@ fn fakeWrite(_: *anyopaque, data: [*]const u8, bytes: usize, _: *c_int) callconv
     return f.write_result;
 }
 
-fn fakeDrain(_: *anyopaque, _: *c_int) callconv(.c) c_int {
+fn fakeDrain(_: *anyopaque, err: *c_int) callconv(.c) c_int {
     const f = active_fake.?;
     f.drain_count += 1;
     f.drained_before_freed = f.free_count == 0;
-    return 0;
+    if (f.drain_result != 0) err.* = 17;
+    return f.drain_result;
 }
 
 fn fakeFree(_: *anyopaque) callconv(.c) void {
@@ -296,6 +300,22 @@ test "write error propagates and zero write is a no-op" {
     var dev2 = PulseDevice.initTest(&audio, clean.fns());
     try dev2.device().write(0);
     try std.testing.expectEqual(@as(usize, 0), clean.write_count);
+}
+
+test "device chunks long writes and frees stream after drain errors" {
+    var audio = try Audio.init(std.testing.allocator, 1);
+    defer audio.deinit();
+    const samples = [_]f32{0.25} ** 513;
+    const clip = Clip{ .sample_rate = 48000, .channels = 1, .samples = &samples };
+    _ = try audio.play(&clip, 1);
+    var fake = FakePulse{ .drain_result = -1 };
+    var device = PulseDevice.initTest(&audio, fake.fns());
+
+    try device.write(513);
+    try std.testing.expectEqual(@as(usize, 2), fake.write_count);
+    device.deinit();
+    try std.testing.expectEqual(@as(usize, 1), fake.drain_count);
+    try std.testing.expectEqual(@as(usize, 1), fake.free_count);
 }
 
 test "init against a bogus server fails cleanly" {

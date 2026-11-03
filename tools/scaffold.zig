@@ -22,6 +22,7 @@ const template_files = [_]TemplateFile{
     .{ .src = "src/scripts/pickup.zig", .dst = "src/scripts/pickup.zig" },
     .{ .src = "project.json", .dst = "project.json", .name = true },
     .{ .src = "Scenes/editor_scene.json", .dst = "Scenes/editor_scene.json" },
+    .{ .src = "Prefabs/pickup.json", .dst = "Prefabs/pickup.json" },
     .{ .src = "README.md", .dst = "README.md", .name = true },
     .{ .src = ".gitignore", .dst = ".gitignore" },
 };

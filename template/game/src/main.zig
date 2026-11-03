@@ -22,22 +22,42 @@ pub fn main(init: std.process.Init) !void {
     defer scene.deinit();
     try scene.load(init.io, STARTUP_SCENE);
 
-    // 3. Create an entity and its base components for each scene object.
-    // SceneSpawn creates base components; add game-specific markers here.
-    const player_sheet = try game.assets.loadTextureFile(init.io, "Assets/Sprites/player_sheet.png", 16 * 1024 * 1024);
-    const sprite = try game.assets.loadTextureFile(init.io, "Assets/Sprites/sprite.png", 16 * 1024 * 1024);
-    const textures = ez_engine.SceneSpawn.SpawnTextures{ .player = player_sheet, .sprite = sprite };
-    var player: ?ez_engine.Entity = null;
+    // 3. Resolve stable scene asset paths, then spawn a tracked scene instance.
+    var asset_resolver = SceneAssetResolver{ .game = game, .io = init.io };
+    var scene_instance = try ez_engine.SceneSpawn.spawnDocumentResolved(
+        &game.world,
+        allocator,
+        &scene,
+        .{ .context = &asset_resolver, .resolveFn = SceneAssetResolver.resolve },
+    );
+    defer scene_instance.despawn(&game.world) catch |err| {
+        std.log.err("failed to despawn startup scene: {s}", .{@errorName(err)});
+    };
+
+    const player = scene_instance.player;
     for (scene.objects.items) |object| {
-        const spawned = try ez_engine.SceneSpawn.spawnObject(&game.world, object, textures);
-        if (object.kind == .sprite and player == null) {
-            player = spawned;
+        const spawned = scene_instance.entityForObject(object.id) orelse return error.SceneInstanceMismatch;
+        if (object.kind == .sprite and player != null and spawned.id == player.?.id) {
             (try game.world.get(player.?, ez_engine.RenderComponents.SpriteAnimation)).clip = Player.idle_clip;
-        } else if (object.kind == .pickup) {
-            try game.world.add(spawned.?, Pickup.Collectible{});
         }
     }
     if (player == null) return error.MissingPlayer;
+
+    const prefab_json = try std.Io.Dir.cwd().readFileAlloc(init.io, "Prefabs/pickup.json", allocator, .limited(1024 * 1024));
+    defer allocator.free(prefab_json);
+    var pickup_prefab = try ez_engine.Scene.Prefab.parse(allocator, prefab_json);
+    defer pickup_prefab.deinit();
+    var pickup_instance = try ez_engine.SceneSpawn.spawnPrefabResolved(
+        &game.world,
+        allocator,
+        &pickup_prefab,
+        .{ .context = &asset_resolver, .resolveFn = SceneAssetResolver.resolve },
+    );
+    defer pickup_instance.despawn(&game.world) catch |err| {
+        std.log.err("failed to despawn pickup prefab: {s}", .{@errorName(err)});
+    };
+    const pickup = pickup_instance.entityForObject(pickup_prefab.object.id) orelse return error.PrefabInstanceMismatch;
+    try game.world.add(pickup, Pickup.Collectible{});
 
     // 4. Register gameplay behaviors and runtime systems.
     var behaviour = Player{};
@@ -66,6 +86,16 @@ pub fn main(init: std.process.Init) !void {
     game.logger.writeCategory(.info, "sample", "Move with WASD or arrow keys, grab the orange pickup");
     try app.run(init.io);
 }
+
+const SceneAssetResolver = struct {
+    game: *ez_engine.Game,
+    io: std.Io,
+
+    fn resolve(context: ?*anyopaque, path: []const u8) anyerror!ez_engine.TextureHandle {
+        const self: *@This() = @ptrCast(@alignCast(context.?));
+        return self.game.assets.loadTextureFile(self.io, path, 16 * 1024 * 1024);
+    }
+};
 
 /// System nhỏ log fps + số entity mỗi 60 bước mô phỏng (debug bật sẵn trong main).
 const StatsLogger = struct {

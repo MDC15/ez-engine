@@ -41,15 +41,27 @@ zig build test        # Chạy toàn bộ unit tests
 zig build wgpu        # Build sample sprite WGPU (cần Linux x86_64)
 zig build wgpu-run    # Chạy WGPU, yêu cầu Mesa ưu tiên GPU rời nếu có
 zig build wgpu-render-test # Kiểm tra pixel render WGPU trên desktop
-zig build gl          # Build sample OpenGL (cần Linux x86_64)
+zig build audio-example   # Build ví dụ WAV + PulseAudio (Linux x86_64)
+zig build gl              # Build sample OpenGL (cần Linux x86_64)
 zig build gl-run      # Chạy OpenGL, tự ưu tiên GPU rời nếu có
 zig build gl-render-test # Kiểm tra pixel render OpenGL trên desktop
 zig build docs        # Xuất API docs ra zig-out/docs
+zig build bench -Doptimize=ReleaseFast # Benchmark các workload core cố định
+zig build scaffold-smoke # Sinh project mới và build test của project đó (Linux)
 ```
 
 Hai bước `*-render-test` cần Linux x86_64 và display hoạt động; chúng render
 sprite qua backend đồ họa rồi đọc pixel từ render target. `zig build test` vẫn
 chỉ chạy bộ test không phụ thuộc display/GPU.
+
+Benchmark workload và cách đọc kết quả xem [docs/benchmarks.md](docs/benchmarks.md).
+Release checklist và chính sách tương thích xem [docs/release.md](docs/release.md).
+
+`zig build audio-example` tạo `zig-out/bin/ez-audio`; chạy với đường dẫn WAV
+16-bit PCM hoặc float32 PCM, mono/stereo. Ví dụ resample offline về 48 kHz,
+phát qua PulseAudio theo các block 512 frame; cần Linux x86_64,
+`libpulse-simple` và PulseAudio/PipeWire Pulse service. Xem
+[ma trận hỗ trợ platform](docs/platform-support.md).
 
 `gl-run` đặt `DRI_PRIME=1` cho Mesa; trên WSLg dùng X11 để tránh các cảnh báo
 EGL khi dò thiết bị, đồng thời chọn driver D3D12 và ưu tiên adapter NVIDIA.
@@ -332,11 +344,12 @@ tools/                # scaffold.zig: `zig build new` generator
   app/game tự quản lý lifetime và pump.
 - GLFW adapter dùng `Game.run`: phím, chuột, scroll, đóng cửa sổ, resize.
 - Logger level/category và debug stats (frame, FPS, entity, culling, batch).
-- Scene document: object sprite/obstacle/pickup, lưu/mở JSON version 1.
-- Scene hiện là document mẫu; chưa serialize tổng quát mọi entity/component.
+- Scene/prefab: document version 2 (đọc được v1), stable project-relative
+  asset references, validate/resolve/spawn/despawn qua public API; không
+  serialize tổng quát mọi entity/component.
 - Scripting Zig-native: behavior `onStart`/`onUpdate` + `Mover2D` built-in,
   đăng ký một dòng qua `Script.register`.
 - Project scaffold: `zig build new -Dname=...` sinh cấu trúc project chuẩn
   (starter dùng App + Script, đã nối `wgpu_backend`).
-- Chưa có: mesh/material 3D, tilemap, UI widgets, particles, editor/hot reload,
-  scene/prefab pipeline tổng quát và audio device đa nền tảng.
+- Chưa có: mesh/material 3D, tilemap, UI widgets, particles, visual editor,
+  prefab inheritance/hot reload và audio device đa nền tảng.

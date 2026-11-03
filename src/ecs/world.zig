@@ -72,6 +72,12 @@ pub const World = struct {
         return entity;
     }
 
+    /// Reserves entity-destruction bookkeeping for a batch of upcoming
+    /// destroys, allowing the batch to clean up without further allocation.
+    pub fn reserveDestroyCapacity(self: *World, additional: usize) !void {
+        try self.free_ids.ensureUnusedCapacity(self.allocator, additional);
+    }
+
     pub fn destroy(self: *World, entity: Entity) !void {
         const entity_slot = try self.entityRecord(entity);
         try self.free_ids.ensureUnusedCapacity(self.allocator, 1);

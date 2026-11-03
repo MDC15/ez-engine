@@ -203,14 +203,24 @@ camera, debug) and behaviors for per-entity logic.
 ## Scene format
 
 `Scene.Document` (`src/scene/scene.zig`) holds
-`Object{id, kind: sprite|obstacle|pickup, position: [2]f32, size: [2]f32}`.
-`save(io, path)` writes `{version: 1, objects: [...]}` JSON; `load(io, path)`
-validates (`version == 1`, finite numbers, positive sizes) and rebuilds IDs
-with `next_id = max_id + 1`. The project starter ships a
-`Scenes/editor_scene.json` example and maps its objects to entities in
-`src/main.zig` (one prefab fn per kind); there is no generic
-scene→runtime pipeline yet — per-kind spawn fns in the starter are the
-recommended pattern.
+`Object{id, kind: sprite|obstacle|pickup, position, size, asset_path}`.
+Scene version 2 stores stable project-relative asset paths, not runtime
+handles. Version 1 remains readable and migrates its missing path to an empty
+reference; saving writes version 2. Validation rejects duplicate/zero IDs,
+non-finite coordinates, non-positive sizes, absolute paths and traversal
+segments. Parsed asset paths are owned by the document.
+
+The public `SceneSpawn.spawnDocumentResolved` pipeline validates the complete
+document and resolves all referenced assets before creating entities. It
+returns a `SceneSpawn.Instance`, which maps stable document IDs to generational
+runtime entities and supports per-object or whole-scene despawn. Asset
+resolution failure therefore does not leave a partial scene. Gameplay-specific
+components remain outside the generic scene loader. The old
+`spawnDocument(..., SpawnTextures)` API remains as a compatibility fallback
+for documents without asset paths. `Scene.Prefab` is the corresponding
+versioned single-object definition; `spawnPrefabResolved` uses the same asset
+resolver and tracked-instance lifetime. The template includes a pickup prefab
+under `Prefabs/`.
 
 ## Current limits
 
@@ -220,12 +230,22 @@ recommended pattern.
   are supported; there is no tilemap or general 2D UI system.
 - Collision is discrete AABB, pairwise, and ignores rotation. Physics is a
   basic velocity integrator, not a full rigid-body solver; no CCD, joints, or
-  broad phase for large collider counts.
+  broad phase for large collider counts. High-speed bodies may tunnel through
+  thin colliders between discrete steps. Non-finite gravity/velocity/position,
+  negative damping, restitution outside `[0, 1]`, and non-positive collider
+  dimensions are rejected instead of being integrated.
 - Software audio mixer + offline resampler; `Audio.Device` vtable with a
   headless `NullDevice` and Linux PulseAudio `PulseDevice`. The app must manage
   device lifetime and pump frames; other OS audio devices are not included.
 - Scene JSON is a small example document, not generic world/component
-  serialization. There is no editor or runtime scene pipeline.
+  serialization. There is no visual editor, prefab inheritance or arbitrary
+  component serialization; reusable objects use the same validated spawn
+  pipeline and game-specific component setup remains in game code.
+- Tilemap, general UI, particles and an editor are intentionally not in the
+  core until a concrete game use case and acceptance tests justify them.
 - No reference-image test for the GPU samples.
 - CI runs `zig build`, `zig build test`, `zig fmt --check` (see
-  `.github/workflows/ci.yml`); license is MIT (`LICENSE`); version `0.1.0`.
+  `.github/workflows/ci.yml`) on Linux x86_64, Windows x86_64, and macOS
+  arm64; desktop GL/WGPU and live PulseAudio are Linux x86_64 only. See
+  [platform support](platform-support.md). License is MIT (`LICENSE`);
+  version `0.1.0`.

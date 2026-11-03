@@ -21,6 +21,13 @@ pub const RigidBody2D = struct {
     restitution: f32 = 0,
 };
 
+pub fn validateRigidBody(body: RigidBody2D) error{InvalidRigidBody}!void {
+    if (!std.math.isFinite(body.gravity_scale) or
+        !std.math.isFinite(body.linear_damping) or body.linear_damping < 0 or
+        !std.math.isFinite(body.restitution) or body.restitution < 0 or body.restitution > 1)
+        return error.InvalidRigidBody;
+}
+
 /// Integrates `Velocity` into `Transform` each step. Run it before the
 /// `Collision2D` system so contacts see the moved positions.
 pub const System = struct {
@@ -37,25 +44,39 @@ pub const System = struct {
 
     pub fn update(self: *System, world: *World, dt: f32) !void {
         if (!std.math.isFinite(dt) or dt < 0) return error.InvalidDeltaTime;
+        if (!std.math.isFinite(self.gravity.x) or !std.math.isFinite(self.gravity.y))
+            return error.InvalidGravity;
         var query = world.query(.{ Components.Transform, Velocity, Query.Optional(RigidBody2D) });
         while (query.next()) |item| {
-            const body_type: BodyType = if (item.RigidBody2D) |body| body.body_type else .dynamic;
-            if (body_type == .static) continue;
-            const gravity_scale: f32 = if (item.RigidBody2D) |body| body.gravity_scale else 0;
-            const damping: f32 = if (item.RigidBody2D) |body| body.linear_damping else 0;
-
+            const body = item.RigidBody2D;
+            if (body) |value| try validateRigidBody(value.*);
+            const body_type: BodyType = if (body) |value| value.body_type else .dynamic;
             const velocity = &item.Velocity.linear;
+            if (!std.math.isFinite(velocity.x) or !std.math.isFinite(velocity.y) or
+                !std.math.isFinite(item.Transform.position.x) or !std.math.isFinite(item.Transform.position.y))
+                return error.InvalidBody;
+            if (body_type == .static) continue;
+            const gravity_scale: f32 = if (body) |value| value.gravity_scale else 0;
+            const damping: f32 = if (body) |value| value.linear_damping else 0;
+
+            var next_velocity = velocity.*;
+            var next_position = item.Transform.position;
             if (body_type == .dynamic) {
-                velocity.x += self.gravity.x * gravity_scale * dt;
-                velocity.y += self.gravity.y * gravity_scale * dt;
+                next_velocity.x += self.gravity.x * gravity_scale * dt;
+                next_velocity.y += self.gravity.y * gravity_scale * dt;
                 if (damping > 0) {
                     const factor = @max(@as(f32, 0), 1 - damping * dt);
-                    velocity.x *= factor;
-                    velocity.y *= factor;
+                    next_velocity.x *= factor;
+                    next_velocity.y *= factor;
                 }
             }
-            item.Transform.position.x += velocity.x * dt;
-            item.Transform.position.y += velocity.y * dt;
+            next_position.x += next_velocity.x * dt;
+            next_position.y += next_velocity.y * dt;
+            if (!std.math.isFinite(next_velocity.x) or !std.math.isFinite(next_velocity.y) or
+                !std.math.isFinite(next_position.x) or !std.math.isFinite(next_position.y))
+                return error.InvalidBody;
+            velocity.* = next_velocity;
+            item.Transform.position = next_position;
         }
     }
 };
@@ -123,4 +144,40 @@ test "non-finite or negative dt is rejected" {
     var system = System{};
     try std.testing.expectError(error.InvalidDeltaTime, system.update(&world, -1));
     try std.testing.expectError(error.InvalidDeltaTime, system.update(&world, std.math.nan(f32)));
+}
+
+test "non-finite gravity, velocity, and invalid rigid-body settings are rejected" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const entity = try world.create();
+    try world.add(entity, Components.Transform{});
+    try world.add(entity, Velocity{});
+    try world.add(entity, RigidBody2D{ .linear_damping = -1 });
+    var system = System{ .gravity = .zero };
+    try std.testing.expectError(error.InvalidRigidBody, system.update(&world, 0.1));
+
+    try world.remove(entity, RigidBody2D);
+    try world.add(entity, RigidBody2D{ .restitution = 1.01 });
+    try std.testing.expectError(error.InvalidRigidBody, system.update(&world, 0.1));
+
+    try world.remove(entity, RigidBody2D);
+    (try world.get(entity, Velocity)).linear.x = std.math.inf(f32);
+    try std.testing.expectError(error.InvalidBody, system.update(&world, 0.1));
+
+    (try world.get(entity, Velocity)).linear.x = 0;
+    system.gravity.y = std.math.nan(f32);
+    try std.testing.expectError(error.InvalidGravity, system.update(&world, 0.1));
+}
+
+test "integration rejects overflow without storing non-finite state" {
+    var world = World.init(std.testing.allocator);
+    defer world.deinit();
+    const entity = try world.create();
+    try world.add(entity, Components.Transform{});
+    try world.add(entity, Velocity{ .linear = .{ .x = std.math.floatMax(f32), .y = 0 } });
+    var system = System{ .gravity = .zero };
+
+    try std.testing.expectError(error.InvalidBody, system.update(&world, 2));
+    try std.testing.expectEqual(std.math.floatMax(f32), (try world.get(entity, Velocity)).linear.x);
+    try std.testing.expectEqual(@as(f32, 0), (try world.get(entity, Components.Transform)).position.x);
 }

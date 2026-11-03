@@ -28,7 +28,8 @@ MyFirstGame/
   src/scripts/pickup.zig    # Collectible tag + pickup listener
   Assets/              # Sprites/Audio/Fonts/Shaders copied from the framework
   Scenes/              # scene files (ez_engine.Scene format)
-  Scenes/editor_scene.json  # sample scene, format version 1
+  Scenes/editor_scene.json  # sample scene, format version 2
+  Prefabs/pickup.json  # reusable single-object prefab, format version 2
   project.json         # name, format version, startup scene
   README.md            # where to go next
   .gitignore
@@ -60,8 +61,11 @@ running. If hardware acceleration is unavailable, GL may fall back to
 llvmpipe (software) and logs a warning.
 
 The starter scene is stored in `Scenes/editor_scene.json`. The entry point in
-`src/main.zig` loads the scene, creates entities, registers scripts and systems,
-then starts the app. Gameplay behaviors live in separate files under
+`src/main.zig` loads the document, resolves its project-relative texture paths,
+spawns a tracked `SceneSpawn.Instance`, parses and spawns the pickup prefab,
+adds gameplay-specific components, registers scripts and systems, then starts
+the app. Both instances despawn their entities before the game runtime is
+destroyed. Gameplay behaviors live in separate files under
 `src/scripts/`; the sample includes player movement and animation, a pickup
 listener, collision, physics and camera follow. Use the `Script` API described
 in `docs/api.md` as a starting point for additional behaviors. Edit the scene
@@ -72,9 +76,17 @@ checkout available at that path when building the game.
 
 ## Scene files
 
-There is no visual editor. Edit scene JSON by hand following the
-`Scene.Document` schema (`id`, `kind: sprite|obstacle|pickup`, `position`,
-`size`; see `docs/architecture.md`), and spawn runtime entities in code —
-the starter constructs its entities programmatically. The sample scene lives
-at `Scenes/editor_scene.json` and `project.json` points `startup_scene`
-there.
+There is no visual editor. Edit scene JSON by hand following
+`Scene.Document` version 2 (`id`, `kind`, `position`, `size`, and optional
+project-relative `asset_path`; see `docs/architecture.md`). Reusable single
+objects use `Scene.Prefab` version 2, as shown in `Prefabs/pickup.json`.
+Version 1 files
+remain readable and save as version 2. Use `SceneSpawn.spawnDocumentResolved`
+with an asset resolver to get an `Instance` that maps document IDs to entities
+and supports deterministic scene teardown. Game-specific components such as
+pickup markers are attached after spawning. The sample scene lives at
+`Scenes/editor_scene.json` and `project.json` points `startup_scene` there.
+
+From the engine checkout, `zig build scaffold-smoke` generates a fresh project
+under `.zig-cache`, builds its starter executable and test target, then removes
+only that temporary generated directory.

@@ -162,9 +162,9 @@ pub const Input = struct {
         self.scroll_y = 0;
     }
 
-    /// Clears pressed/released edges while keeping held state. Call after the
-    /// first simulation step of a frame so edge-triggered actions fire once
-    /// even when a frame runs several fixed steps.
+    /// Consumes frame-transient input after the first fixed simulation step,
+    /// while keeping held state available to every later step in the frame.
+    /// Held button state remains available to every later step in the frame.
     pub fn clearEdges(self: *Input) void {
         for (&self.keys) |*button| {
             button.pressed = false;
@@ -174,6 +174,10 @@ pub const Input = struct {
             button.pressed = false;
             button.released = false;
         }
+        self.mouse_delta_x = 0;
+        self.mouse_delta_y = 0;
+        self.scroll_x = 0;
+        self.scroll_y = 0;
     }
 
     /// Releases held keys/buttons when the host window loses focus and
@@ -229,6 +233,8 @@ pub const Input = struct {
         return self.mouse_buttons[@intFromEnum(button)];
     }
 
+    /// Stores top-left-origin framebuffer-pixel coordinates. Platform
+    /// adapters convert from logical window coordinates before emitting.
     pub fn moveMouse(self: *Input, x: f32, y: f32) void {
         if (self.mouse_position_valid) {
             self.mouse_delta_x += x - self.mouse_x;
@@ -294,11 +300,17 @@ test "clearEdges drops edges but keeps held state" {
     var input: Input = .{};
     input.setKey(.space, true);
     input.setMouseButton(.left, true);
+    input.moveMouse(1, 2);
+    input.moveMouse(4, 8);
+    input.addScroll(1, -2);
     input.clearEdges();
     try std.testing.expect(input.isDown(.space));
     try std.testing.expect(!input.justPressed(.space));
     try std.testing.expect(input.mouseButton(.left).down);
     try std.testing.expect(!input.mouseButton(.left).pressed);
+    try std.testing.expectEqual(@as(f32, 0), input.mouse_delta_x);
+    try std.testing.expectEqual(@as(f32, 0), input.mouse_delta_y);
+    try std.testing.expectEqual(@as(f32, 0), input.scroll_y);
 }
 
 test "focus loss releases held input and resets cursor delta origin" {

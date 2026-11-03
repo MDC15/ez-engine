@@ -1,3 +1,4 @@
+const std = @import("std");
 const zglfw = @import("zglfw");
 const game_lib = @import("ez_engine");
 const Platform = game_lib.Platform;
@@ -144,7 +145,26 @@ pub const WindowAdapter = struct {
 
     fn onCursorPosition(window: *zglfw.Window, x: f64, y: f64) callconv(.c) void {
         const adapter = fromNative(window) orelse return;
-        adapter.emit(.{ .mouse_move = .{ .x = @floatCast(x), .y = @floatCast(y) } });
+        const logical_size = window.getSize();
+        const framebuffer_size = window.getFramebufferSize();
+        const position = game_lib.Platform.cursorToFramebuffer(
+            x,
+            y,
+            .{
+                .width = @intCast(@max(logical_size[0], 0)),
+                .height = @intCast(@max(logical_size[1], 0)),
+            },
+            .{
+                .width = @intCast(@max(framebuffer_size[0], 0)),
+                .height = @intCast(@max(framebuffer_size[1], 0)),
+            },
+        ) catch |err| {
+            if (err != error.InvalidWindowExtent) {
+                std.log.warn("unable to convert GLFW cursor position: {s}", .{@errorName(err)});
+            }
+            return;
+        };
+        adapter.emit(.{ .mouse_move = .{ .x = position.x, .y = position.y } });
     }
 
     fn onScroll(window: *zglfw.Window, x: f64, y: f64) callconv(.c) void {

@@ -86,6 +86,20 @@ pub fn build(b: *std.Build) void {
     const docs_step = b.step("docs", "Emit API documentation");
     docs_step.dependOn(&install_docs.step);
 
+    const benchmark_module = b.createModule(.{
+        .root_source_file = b.path("benchmarks/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    benchmark_module.addImport("ez_engine", game);
+    const benchmark = b.addExecutable(.{
+        .name = "ez-engine-bench",
+        .root_module = benchmark_module,
+    });
+    const run_benchmark = b.addRunArtifact(benchmark);
+    const benchmark_step = b.step("bench", "Run repeatable core performance benchmarks");
+    benchmark_step.dependOn(&run_benchmark.step);
+
     const new_name = b.option([]const u8, "name", "Project name for `zig build new`");
     const new_workspace = b.option([]const u8, "workspace", "Projects folder for `zig build new` (default: projects/)");
     const scaffold = b.addExecutable(.{
@@ -125,9 +139,23 @@ pub fn build(b: *std.Build) void {
 
     const desktop_supported = target.result.os.tag == .linux and target.result.cpu.arch == .x86_64;
     if (!desktop_supported) {
-        std.log.warn("the wgpu sample requires Linux x86_64; only the library and tests are available", .{});
+        std.log.warn("desktop window, graphics, and PulseAudio examples require Linux x86_64; building core targets only", .{});
         return;
     }
+
+    const scaffold_smoke = b.addExecutable(.{
+        .name = "ez-scaffold-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/scaffold_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_scaffold_smoke = b.addRunArtifact(scaffold_smoke);
+    run_scaffold_smoke.addArg(b.build_root.path orelse ".");
+    run_scaffold_smoke.addArg(b.graph.zig_exe);
+    const scaffold_smoke_step = b.step("scaffold-smoke", "Generate a clean game project and build its tests");
+    scaffold_smoke_step.dependOn(&run_scaffold_smoke.step);
 
     const zglfw = b.dependency("zglfw", .{
         .target = target,
@@ -308,4 +336,17 @@ pub fn build(b: *std.Build) void {
     if (b.graph.environ_map.get("DRI_PRIME") == null) run_wgpu_pixel_tests.setEnvironmentVariable("DRI_PRIME", "1");
     const wgpu_pixel_test_step = b.step("wgpu-render-test", "Run WGPU pixel-level rendering regression");
     wgpu_pixel_test_step.dependOn(&run_wgpu_pixel_tests.step);
+
+    const audio_example = b.addExecutable(.{
+        .name = "ez-audio",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/audio/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    audio_example.root_module.addImport("ez_engine", game);
+    b.installArtifact(audio_example);
+    const audio_example_step = b.step("audio-example", "Build the WAV playback example");
+    audio_example_step.dependOn(&audio_example.step);
 }

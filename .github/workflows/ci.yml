@@ -6,7 +6,11 @@ on:
 
 jobs:
   build-test-fmt:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2
@@ -16,5 +20,17 @@ jobs:
         run: zig build
       - name: Run tests
         run: zig build test
+      - name: Emit API docs
+        run: zig build docs
       - name: Check formatting
-        run: zig fmt --check src tests tools template examples build.zig build.zig.zon
+        run: zig fmt --check src tests tools template examples benchmarks build.zig build.zig.zon
+
+  scaffold-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Generate a game project and build its tests
+        run: zig build scaffold-smoke

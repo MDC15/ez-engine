@@ -61,6 +61,8 @@
         "assets",
         "tests",
         "tools",
+        "benchmarks",
+        "template",
         "docs",
         "README.md",
     },

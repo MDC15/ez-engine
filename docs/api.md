@@ -215,7 +215,9 @@ details; consumers only import `ez_engine`.
 - `Texture{ width, height, format: rgba8|bgra8, ... }`.
 - `Audio.init(allocator, channels)` / `initConfigured(..., rate)` (default
   48000 Hz, no resampling); `play(clip, volume) !voice`,
-  `stop(voice)`, `mix(out: []f32)`; `decodeWav(allocator, bytes)`.
+  `stop(voice)`, `mix(out: []f32)`; `Audio.decodeWav(allocator, bytes)`.
+  `Audio.play` rejects non-finite/negative volume, malformed clips, and
+  non-finite samples. Mixer output is clamped to `[-1, 1]`.
   `Audio.resample(allocator, clip, target_rate) !OwnedClip` (offline linear
   interpolation — the documented fix for `error.SampleRateMismatch`);
   `Audio.releaseClip(allocator, &owned_clip)` frees decoded/resampled samples
@@ -223,22 +225,28 @@ details; consumers only import `ez_engine`.
   otherwise). `play` borrows the clip; keep its storage stable until then.
   `Audio.Device` vtable (`write(frames)`, `deinit`) with headless
   `Audio.NullDevice` for tests. `AudioClip` is the root-exported clip type.
-- `Audio.PulseDevice.init(audio, app, stream, server) !PulseDevice` (Linux;
+- `Audio.PulseDevice.init(audio, app, stream, server) !PulseDevice` (Linux
+  x86_64 in this build;
   runtime-loaded `libpulse-simple`, no dev package or link needed; `server`
   null selects the desktop default). Pump once per rendered frame with
   frames matching consumed simulation time:
   `tick(dt)` then `device.write(@intFromFloat(48000 * dt))`.
   Errors: `AudioLibraryMissing` (no lib), `NoAudioServer` (no daemon),
   `PulseWriteFailed` (mid-stream). Recipe on any error: log once, stop
-  pumping, the game continues silent. Destroy the device before
+  pumping, the game continues silent. Drain errors during deinit are logged;
+  the stream is still freed. Destroy the device before
   `Game.audio`; borrowed `*Audio`/names must outlive it.
 
 ## Input, platform, scene
 
 - `Input`: `key/keyCode`, `isDown/justPressed/justReleased(key)`, `mouseButton`,
   `moveMouse`, `addScroll`; per-frame edges via `beginFrame()`
-  (`pressed`/`released` live one frame). `clearEdges()` drops the edges but
-  keeps held state (used after the first fixed step). Platform focus loss
+  (`pressed`/`released` live one frame). `moveMouse` and the exposed `mouse_x`
+  / `mouse_y` use top-left-origin framebuffer pixels; GLFW converts its
+  logical cursor coordinates using current window/framebuffer dimensions,
+  including high-DPI scale. `clearEdges()` consumes press/release edges,
+  mouse delta, and scroll while preserving held state (used after the first
+  fixed step). Platform focus loss
   releases held keys/buttons and resets the cursor-delta origin. Invalid raw
   platform key codes are logged and ignored. `Key` names the GLFW key set;
   `Key` / `MouseButton` enums exported at root.
@@ -248,17 +256,35 @@ details; consumers only import `ez_engine`.
   is a ready, empty map; `Game.deinit` frees it.
 - `Platform.Window` vtable (`pollEvents`, `framebuffer_extent`,
   `requestClose`, `shouldClose`) and `Platform.Event` (including focus
-  changes); GLFW adapter at `src/platform/glfw_window.zig`
+  changes); `Platform.cursorToFramebuffer` exposes the tested logical-to-pixel
+  conversion. GLFW adapter at `src/platform/glfw_window.zig`
   (`WindowAdapter.init(w, h, title)`).
 - `Scene.Document`: `init/deinit`, `add(kind) !id`, `remove(id) bool`,
-  `get(id) ?*Object`, `save(io, path)`, `load(io, path)`
-  (`error.UnsupportedSceneVersion` unless `version == 1`).
+  `get(id) ?*Object`, `setAssetPath(id, path)`, `validate()`,
+  `parse(allocator, json)`, `stringify(allocator)`, `save(io, path)`,
+  `load(io, path)`. Reads versions 1 and 2, migrates v1's missing
+  `asset_path` to an empty reference, and writes version 2. Objects require
+  unique nonzero IDs, finite position, positive size, and optional safe,
+  project-relative asset paths (no absolute paths or `..` segments).
+- `Scene.Prefab`: a reusable single-object definition with `parse(allocator,
+  json)`, `stringify(allocator)`, `setAssetPath(path)`, and `deinit()`.
+  Version 1 migrates to version 2; serialized fields are the stable object ID,
+  kind, transform/size data and project-relative asset path, never a runtime
+  entity or texture handle.
 - `SceneSpawn`: `SpawnTextures{ player, sprite }`,
   `spawnObject(world, object, textures) !?Entity`,
-  `spawnDocument(world, doc, textures) !?Entity` (first `.sprite` or null).
+  `spawnDocument(world, doc, textures) !?Entity` (legacy per-kind fallback),
+  or `spawnDocumentResolved(world, allocator, &doc, AssetResolver) !Instance`.
+  `spawnPrefabResolved(world, allocator, &prefab, AssetResolver) !Instance`.
+  The resolved path preloads every asset reference before creating entities;
+  empty/missing references return `MissingAssetReference`/`AssetNotFound`
+  without a partial scene. `Instance.entityForObject(id)`,
+  `despawnObject(world, id)`, and `despawn(world)` manage scene-owned entities.
+  The caller owns the instance metadata and must call `despawn` before
+  destroying the world; `despawn` also releases its tracking allocation.
   Base components only (Transform + SpriteRenderer + Collider2D, default
   5x1 animation on player); game markers (Collectible, scripts) stay in
-  the caller. Invalid size/position → `error.InvalidSceneObject`, nothing spawned.
+  the caller. Invalid document data returns `InvalidSceneObject`.
 - `Script`: `init(game, &behavior)` / `initWithStart(game, &behavior)` for
   structs with `pub onUpdate(*T, *Ctx)` or the ctx-free
   `pub onUpdate(*T, *Game, f32)` (either may return `void` or `!void`; plus

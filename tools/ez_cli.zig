@@ -15,7 +15,7 @@ const Command = enum {
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const allocator = std.heap.page_allocator;
-    var arg_it = std.process.Args.Iterator.init(init.minimal.args);
+    var arg_it = try std.process.Args.Iterator.initAllocator(init.minimal.args, allocator);
     defer arg_it.deinit();
     _ = arg_it.skip();
 

@@ -49,72 +49,92 @@ mục đó đã được kiểm chứng.
 
 ## P1 — Platform, physics và audio
 
-- [ ] **Hoàn thiện input, tọa độ chuột và resize**
-  - Chốt coordinate mapping giữa logical window, framebuffer và DPI scale;
-    bổ sung event/API cần thiết cho adapter.
-  - Kiểm thử resize, close request, focus loss, input edges qua frame có
-    0/1/n fixed updates.
-  - **Nghiệm thu:** kiểm thử tự động cho input/resize/fixed-step và smoke
-    test adapter trên từng OS được công bố.
+- [x] **Hoàn thiện input, tọa độ chuột và resize**
+  - [x] Chốt mapping tọa độ chuột từ logical window sang framebuffer pixels,
+    gồm DPI/non-uniform scale; cập nhật GLFW adapter.
+  - [x] Kiểm thử resize, close request, focus loss, cùng input edges qua
+    frame có 0/1/n fixed updates.
+  - [x] Smoke-test GLFW desktop adapter qua pixel regressions GL và WGPU trên
+    Linux x86_64; các target Windows/macOS hiện chỉ công bố core.
+  - **Nghiệm thu:** test tự động và adapter smoke test trên mọi target desktop
+    được công bố đều pass.
 
 - [ ] **Công bố target/platform matrix**
-  - Xác định target Zig/OS/architecture được hỗ trợ cho core, GLFW, GL, WGPU
-    và audio.
-  - Đảm bảo core build/test không kéo phụ thuộc desktop ngoài phạm vi.
-  - **Nghiệm thu:** ma trận được ghi trong docs và được chạy trong CI; target
-    không hỗ trợ trả thông báo rõ ràng.
+  - [x] Xác định target Zig/OS/architecture cho core, GLFW, GL, WGPU và audio
+    trong `docs/platform-support.md`.
+  - [x] Core build/test tách khỏi phụ thuộc desktop; target không hỗ trợ
+    desktop có warning rõ ràng.
+  - [x] Cấu hình CI native matrix Linux, Windows và macOS; xác nhận build
+    chéo core cho Linux x86_64, Windows x86_64 và macOS arm64 tại máy dev.
+  - [ ] Chờ kết quả workflow CI trên các native runner.
+  - **Nghiệm thu:** ma trận được ghi trong docs và workflow xanh trên toàn bộ
+    target công bố.
 
-- [ ] **Kiểm thử giới hạn và lỗi Physics 2D**
-  - Bổ sung test cho giá trị không finite/không hợp lệ, thứ tự system,
-    contact/filter, body types, restitution và vận tốc cao/tunneling.
-  - Ghi rõ collision hiện là discrete AABB và các giới hạn đã xác nhận.
-  - Chỉ thêm broad phase/CCD nếu benchmark hoặc game mục tiêu yêu cầu.
-  - **Nghiệm thu:** tests xác định được hành vi hỗ trợ và giới hạn; API không
-    âm thầm chấp nhận input sai.
+- [x] **Kiểm thử giới hạn và lỗi Physics 2D**
+  - [x] Test giá trị không finite/không hợp lệ, thứ tự physics-before-
+    collision, contact/filter, body types, restitution và vận tốc cao.
+  - [x] Ghi rõ collision discrete AABB, pairwise, bỏ qua rotation và không
+    có CCD/broad phase; regression xác nhận tunneling ở vận tốc cao.
+  - [x] Chưa thêm broad phase/CCD vì không có benchmark/use-case yêu cầu.
+  - **Nghiệm thu:** test xác định hành vi và giới hạn; input sai bị từ chối.
 
 - [ ] **Hoàn thiện workflow audio theo target**
-  - Đưa WAV load/decode, resample, playback và device pump vào ví dụ dùng
-    được; giữ quy tắc clip phải sống tới khi voice dừng/kết thúc.
-  - Test voice lifetime, rate conversion, clipping, thiết bị lỗi và shutdown.
-  - Chọn và kiểm chứng backend audio cho từng target muốn công bố; không tuyên
-    bố cross-platform nếu mới xác nhận PulseAudio.
-  - **Nghiệm thu:** sample phát được trên thiết bị target đã công bố; lỗi
-    thiết bị được surface/log theo hợp đồng.
+  - [x] Thêm ví dụ WAV decode/resample/playback/device pump; clip còn sống
+    tới khi voice dừng; build bằng `zig build audio-example`.
+  - [x] Test voice lifetime, rate conversion, clipping, device failure và
+    shutdown.
+  - [x] Chỉ công bố PulseAudio trên Linux x86_64; software mixer/WAV API
+    portable nhưng không tuyên bố có thiết bị output trên target khác.
+  - [ ] Chạy sample phát thực tế trên PulseAudio/PipeWire Pulse; môi trường
+    hiện tại chưa xác nhận live playback.
+  - **Nghiệm thu:** sample phát được trên thiết bị đã công bố; lỗi thiết bị
+    được surface/log theo hợp đồng.
 
 ## P2 — Scene/gameplay utilities và phát hành
 
-- [ ] **Hoàn thiện scene/prefab lifecycle**
-  - Tách document, validation, asset resolution và spawn/despawn.
-  - Dùng asset references ổn định trong dữ liệu lưu; không serialize raw
-    pointer hoặc index/generation runtime làm ID lâu dài.
-  - Thêm round-trip/version migration và lỗi asset rõ ràng.
-  - **Nghiệm thu:** sample gameplay load scene/prefab qua public API; test
-    round-trip, version, lỗi asset và cleanup.
+- [x] **Hoàn thiện scene/prefab lifecycle**
+  - [x] Tách document validation, asset resolution, runtime spawn và
+    per-object/whole-scene despawn; prefab single-object dùng cùng resolver.
+  - [x] Lưu asset path tương đối ổn định; không serialize raw pointer hay
+    runtime handle/generation.
+  - [x] Đọc scene/prefab v1, migrate và ghi v2; test duplicate/invalid data,
+    asset resolution failure atomicity, entity mapping và teardown.
+  - [x] Starter load scene qua public API; scaffold gồm prefab pickup mẫu.
+  - **Nghiệm thu:** tests và `zig build scaffold-smoke` pass; game-specific
+    components vẫn do game bổ sung sau spawn.
 
-- [ ] **Chọn tiện ích gameplay theo use-case**
-  - Chỉ chọn tilemap, UI, particles hoặc editor khi có nhu cầu game cụ thể.
-  - Mỗi tiện ích nằm trong module riêng, có test/example trước khi export API.
-  - **Nghiệm thu:** không làm phình core vì tính năng chưa có consumer; module
-    mới có tài liệu và ví dụ.
+- [x] **Chọn tiện ích gameplay theo use-case**
+  - [x] Chưa thêm tilemap, general UI, particles hoặc editor vào core vì chưa
+    có consumer/use-case cụ thể; ghi quyết định trong architecture docs.
+  - [x] Reusable single-object prefab nằm trong module Scene riêng; không thêm
+    tiện ích gameplay mới ngoài phạm vi.
+  - **Nghiệm thu:** core không phình thêm tiện ích chưa được yêu cầu.
 
 - [ ] **Thiết lập CI theo target**
-  - Chạy format, build, tests và docs trên ma trận platform đã công bố.
+  - [x] Thêm native CI matrix chạy format, build, tests và docs cho Linux,
+    Windows và macOS.
+  - [x] Thêm Linux scaffold smoke job và xác nhận `zig build scaffold-smoke`
+    chạy thành công tại máy dev.
+  - [ ] Xác nhận workflow xanh trên hosted runner Linux/Windows/macOS.
   - Tránh format hoặc lint dependency vendored ngoài phạm vi dự án.
   - **Nghiệm thu:** workflow CI tái lập được và xanh trên mọi target được hỗ
     trợ.
 
-- [ ] **Thêm benchmark baseline**
-  - Đo ECS iteration, render extraction/culling/batching, collision và asset
-    load với input/kích thước workload được ghi rõ.
-  - Lưu cách chạy và baseline; chỉ tối ưu sau khi có số liệu.
-  - **Nghiệm thu:** benchmark có thể chạy lặp lại và kết quả so sánh được.
+- [x] **Thêm benchmark baseline**
+  - [x] Đo ECS iteration, render extraction/culling/batching, pairwise
+    collision và ZTEX decode với workload cố định, lặp lại được.
+  - [x] Ghi cách chạy và lần baseline đầu trong `docs/benchmarks.md`; thời
+    gian là số đo tham khảo của máy dev, không phải ngưỡng CI.
+  - **Nghiệm thu:** `zig build bench -Doptimize=ReleaseFast` chạy lặp lại.
 
-- [ ] **Hoàn thiện chính sách release và scaffold smoke test**
-  - Công bố semver, chính sách breaking changes, migration notes,
-    dependencies/toolchain và supported platforms.
-  - Tạo project mới từ template trong kiểm thử sạch, build và chạy smoke test.
-  - **Nghiệm thu:** release checklist hoàn chỉnh; scaffold chỉ dùng public API
-    và build được từ đầu.
+- [x] **Hoàn thiện chính sách release và scaffold smoke test**
+  - [x] Công bố semver trước/sau 1.0, migration notes, dependency/toolchain
+    pinning, platform matrix và release checklist.
+  - [x] Tạo project mới vào workspace riêng trong `.zig-cache`, build starter
+    executable + test target và tự dọn chính thư mục tạm vừa sinh.
+  - [x] Scaffold sample compile qua public scene/spawn API.
+  - **Nghiệm thu:** `zig build scaffold-smoke` thành công; publish/tag vẫn cần
+    quyền release tường minh.
 
 ## P0 đã hoàn tất
 

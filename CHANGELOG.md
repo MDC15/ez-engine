@@ -13,6 +13,14 @@
 - OS audio output: `Audio.PulseDevice`, a drop-in `Audio.Device` driving
   PulseAudio (runtime-loaded `libpulse-simple`, float32 at the mixer rate,
   manual per-frame pump, clean silent fallback when no server is present).
+- Platform contracts: GLFW cursor coordinates map from logical window units to
+  top-left framebuffer pixels; transient mouse/scroll input is consumed on the
+  first fixed step. CI now covers native core builds/tests/docs on Linux,
+  Windows, and macOS.
+- WAV playback example: `zig build audio-example` builds `ez-audio` on Linux
+  x86_64 to decode, resample, and play a supplied WAV through PulseAudio.
+- Physics validation and regression coverage for non-finite values, invalid
+  body/collider settings, restitution, system ordering, and discrete tunneling.
 - Packed atlas + named animation clips: `ez_engine.Atlas` (versioned JSON
   with named frames, per-frame durations/offsets), asset-manager caching
   (`loadAtlasFile`/`getAtlas`/`releaseAtlas`), `AtlasPlayer` component with
@@ -20,6 +28,14 @@
   applied at extract time. Uniform-grid animation is unchanged.
 - Safe owned audio clip release: `Audio.releaseClip` refuses to free samples
   while an active voice still borrows that clip.
+- Scene lifecycle: version-2 scene documents carry project-relative asset
+  paths, migrate version 1, validate stable IDs, resolve resources before
+  spawning, and return a `SceneSpawn.Instance` for deterministic despawn.
+- Repeatable core performance workloads (`zig build bench`) and a fresh-project
+  scaffold smoke check (`zig build scaffold-smoke`).
+- Documented release/compatibility policy and the deliberate decision to keep
+  tilemap, general UI, particles, and an editor outside core without a concrete
+  game use case.
 
 ## 0.1.0 - 2026-10-13
 
@@ -30,7 +46,7 @@
   the project template uses it and only adds game markers on top.
 - Audio asset path: `Audio.resample` (offline linear resampler) plus the
   `Audio.Device` vtable and headless `Audio.NullDevice`; clip type
-  exported as `ez_engine.AudioClip`. Real OS drivers still future work.
+  exported as `ez_engine.AudioClip`.
 - Zig-native scripting: `ez_engine.Script` (`onUpdate`, optional `onStart`
   via `initWithStart`, one-line `register`) plus built-in `Mover2D`.
 - Desktop `App` helper (`ez_app` module): window + graphics + game + backend

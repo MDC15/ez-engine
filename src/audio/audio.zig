@@ -6,18 +6,18 @@ pub const Clip = struct {
     samples: []const f32,
 };
 
-pub const OwnedClip = struct {
+pub const DecodedClip = struct {
     clip: Clip,
     samples: []f32,
 
-    pub fn deinit(self: *OwnedClip, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *DecodedClip, allocator: std.mem.Allocator) void {
         allocator.free(self.samples);
         self.samples = &.{};
         self.clip.samples = self.samples;
     }
 };
 
-pub fn decodeWav(allocator: std.mem.Allocator, bytes: []const u8) !OwnedClip {
+fn decodeWavData(allocator: std.mem.Allocator, bytes: []const u8) !DecodedClip {
     if (bytes.len < 12 or !std.mem.eql(u8, bytes[0..4], "RIFF") or !std.mem.eql(u8, bytes[8..12], "WAVE"))
         return error.InvalidWav;
     var channels: u16 = 0;
@@ -93,6 +93,12 @@ pub const Audio = struct {
     output_channels: u8,
     output_sample_rate: u32,
 
+    pub const OwnedClip = DecodedClip;
+
+    pub fn decodeWav(allocator: std.mem.Allocator, bytes: []const u8) !OwnedClip {
+        return decodeWavData(allocator, bytes);
+    }
+
     pub fn init(allocator: std.mem.Allocator, output_channels: u8) !Audio {
         return initConfigured(allocator, output_channels, 48000);
     }
@@ -112,6 +118,10 @@ pub const Audio = struct {
             return error.InvalidClip;
         if (clip.sample_rate != self.output_sample_rate) return error.SampleRateMismatch;
         if (clip.samples.len % clip.channels != 0) return error.InvalidClip;
+        if (!std.math.isFinite(volume) or volume < 0) return error.InvalidVolume;
+        for (clip.samples) |sample| {
+            if (!std.math.isFinite(sample)) return error.InvalidClip;
+        }
         for (self.voices.items, 0..) |*voice, index| {
             if (!voice.active) {
                 voice.* = .{ .clip = clip, .volume = volume };
@@ -165,19 +175,27 @@ pub const Audio = struct {
                         clip.samples[source_offset]
                     else
                         (clip.samples[source_offset] + clip.samples[source_offset + 1]) * 0.5;
+                    if (!std.math.isFinite(sample)) return error.InvalidClip;
                     output[output_offset] += sample * voice.volume;
                 } else if (clip.channels == 1) {
                     const sample = clip.samples[source_offset] * voice.volume;
+                    if (!std.math.isFinite(sample)) return error.InvalidClip;
                     output[output_offset] += sample;
                     output[output_offset + 1] += sample;
                 } else {
-                    output[output_offset] += clip.samples[source_offset] * voice.volume;
-                    output[output_offset + 1] += clip.samples[source_offset + 1] * voice.volume;
+                    const left = clip.samples[source_offset] * voice.volume;
+                    const right = clip.samples[source_offset + 1] * voice.volume;
+                    if (!std.math.isFinite(left) or !std.math.isFinite(right)) return error.InvalidClip;
+                    output[output_offset] += left;
+                    output[output_offset + 1] += right;
                 }
                 voice.cursor += 1;
             }
         }
-        for (output) |*sample| sample.* = std.math.clamp(sample.*, -1, 1);
+        for (output) |*sample| {
+            if (!std.math.isFinite(sample.*)) return error.InvalidClip;
+            sample.* = std.math.clamp(sample.*, -1, 1);
+        }
     }
 
     /// Linear-interpolation resampler for offline asset preparation.
@@ -188,14 +206,20 @@ pub const Audio = struct {
         if (target_rate == 0 or clip.sample_rate == 0) return error.InvalidSampleRate;
         if (clip.channels == 0 or clip.channels > 2) return error.InvalidClip;
         if (clip.samples.len == 0 or clip.samples.len % clip.channels != 0) return error.InvalidClip;
+        for (clip.samples) |sample| {
+            if (!std.math.isFinite(sample)) return error.InvalidClip;
+        }
         if (target_rate == clip.sample_rate) {
             const copy = try allocator.dupe(f32, clip.samples);
             return .{ .clip = .{ .sample_rate = target_rate, .channels = clip.channels, .samples = copy }, .samples = copy };
         }
         const in_frames = clip.samples.len / clip.channels;
-        const out_frames = (in_frames * target_rate + clip.sample_rate - 1) / clip.sample_rate;
+        const scaled_frames = std.math.mul(usize, in_frames, target_rate) catch return error.InvalidClip;
+        const rounded_frames = std.math.add(usize, scaled_frames, clip.sample_rate - 1) catch return error.InvalidClip;
+        const out_frames = rounded_frames / clip.sample_rate;
         if (out_frames == 0) return error.InvalidClip;
-        const out = try allocator.alloc(f32, out_frames * clip.channels);
+        const out_samples = std.math.mul(usize, out_frames, clip.channels) catch return error.InvalidClip;
+        const out = try allocator.alloc(f32, out_samples);
         errdefer allocator.free(out);
         for (0..out_frames) |frame| {
             const src_pos = @as(f64, @floatFromInt(frame)) * @as(f64, @floatFromInt(clip.sample_rate)) /
@@ -277,6 +301,17 @@ test "software mixer sums voices and clamps output" {
     try std.testing.expectEqualSlices(f32, &.{ 1, -1 }, &output);
 }
 
+test "audio play rejects invalid volume and non-finite samples" {
+    var audio = try Audio.init(std.testing.allocator, 1);
+    defer audio.deinit();
+    const clip = Clip{ .sample_rate = 48000, .channels = 1, .samples = &.{0.5} };
+    try std.testing.expectError(error.InvalidVolume, audio.play(&clip, -1));
+    try std.testing.expectError(error.InvalidVolume, audio.play(&clip, std.math.inf(f32)));
+    const invalid_samples = [_]f32{std.math.nan(f32)};
+    const invalid_clip = Clip{ .sample_rate = 48000, .channels = 1, .samples = &invalid_samples };
+    try std.testing.expectError(error.InvalidClip, audio.play(&invalid_clip, 1));
+}
+
 test "owned audio clip cannot be released while a voice is using it" {
     var audio = try Audio.init(std.testing.allocator, 1);
     defer audio.deinit();
@@ -311,7 +346,7 @@ test "WAV decoder reads little-endian signed PCM" {
     std.mem.writeInt(u32, wav[40..44], 4, .little);
     std.mem.writeInt(i16, wav[44..46], -32768, .little);
     std.mem.writeInt(i16, wav[46..48], 16384, .little);
-    var clip = try decodeWav(std.testing.allocator, &wav);
+    var clip = try Audio.decodeWav(std.testing.allocator, &wav);
     defer clip.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(u8, 1), clip.clip.channels);
     try std.testing.expectEqualSlices(f32, &.{ -1, 0.5 }, clip.clip.samples);
